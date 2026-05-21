@@ -19,6 +19,7 @@ class FlightState:
         self.md = 1      # 1 = Manual, 2 = Automatic
         self.cls = 0     # 0 = Person, 2 = Car
         self.spd = 1.5   # m/s
+        self.zoom = None # ← NEW: Add this line
 
         # Telemetry for overlays
         self.battery = None
@@ -46,6 +47,8 @@ class FlightState:
                 self.cls = int(v)
             elif k == "Spd":
                 self.spd = float(v)
+            elif k == "Zoom":                    # ← NEW
+                self.zoom = float(v)
 
 class FlightInterface(QObject):
     connection_state_changed = Signal(str)
@@ -403,3 +406,13 @@ class FlightInterface(QObject):
     def send_cancel(self):
         print("cancel")
         self.send_statustext("CANCEL:TRUE,Notcare:TRUE")
+
+    def send_zoom(self, zoom_level: float):
+        """Send zoom command (1.0 to 10.0)"""
+        if not (1.0 <= zoom_level <= 10.0):
+            print(f"❌ Zoom level must be between 1.0 and 10.0 (got {zoom_level})")
+            return
+        
+        msg = f"Zoom:{zoom_level:.1f}"
+        print(f"📤 Sending Zoom: {msg}")
+        self.send_statustext(msg)

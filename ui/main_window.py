@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QImage, QPixmap, QAction, QPainter, QColor
 import serial.tools.list_ports
 
-from ui.widgets import OperationGroup, ModeGroup, SpeedGroup, ClassGroup
+from ui.widgets import OperationGroup, ModeGroup, SpeedGroup, ClassGroup,ZoomGroup
 from core.camera_interface import CameraInterface
 from core.flight_interface import FlightState
 from utils.frame_overlay import FrameOverlay
@@ -92,8 +92,9 @@ class MainWindow(QMainWindow):
         self.mode_group = ModeGroup(fi)
         self.speed_group = SpeedGroup(fi)
         self.class_group = ClassGroup(fi)
+        self.zoom_group = ZoomGroup(fi)           # ← NEW
 
-        for g in [self.operation_group, self.mode_group, self.speed_group, self.class_group]:
+        for g in [self.operation_group, self.mode_group, self.speed_group, self.class_group,self.zoom_group]:
             g.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             container_layout.addWidget(g)
 
@@ -183,6 +184,7 @@ class MainWindow(QMainWindow):
         self.mode_group.update_from_flight(state.md, state.initialized)
         self.speed_group.update_from_flight(state.spd, state.op, state.st, state.initialized)
         self.class_group.update_from_flight(state.cls, state.op, state.st, state.initialized)
+        self.zoom_group.update_from_flight(state.zoom, state.initialized)
 
 
     def _switch_camera(self, camera_index):

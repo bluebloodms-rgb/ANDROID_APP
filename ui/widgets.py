@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QSizePolicy
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QSizePolicy,QLineEdit
+from PySide6.QtCore import Qt,QTimer
+
 
 class GroupBox(QWidget):
     def __init__(self, title: str, default_state="---",
@@ -48,24 +49,37 @@ class GroupBox(QWidget):
         self.inner_layout = QHBoxLayout()
         self.inner_layout.setSpacing(10)
         layout.addLayout(self.inner_layout)
-
-        # Styling
+        # ==================== UPDATED STYLESHEET ====================
         self.container.setStyleSheet(f"""
             QWidget#groupContainer {{
                 background-color: {bg_color};
                 border-radius: 12px;
             }}
-            QPushButton, QComboBox {{
+            
+            QPushButton, QComboBox, QLineEdit {{
                 border-radius: 6px;
                 padding: 6px;
                 background-color: {content_color};
                 color: #fff;
             }}
-            QPushButton:disabled, QComboBox:disabled {{
+            
+            QLineEdit {{
+                border: 1px solid #555;
+                padding: 5px 8px;
+            }}
+            
+            QLineEdit:focus {{
+                border: 2px solid #4CAF50;
+                background-color: #333;
+            }}
+            
+            QPushButton:disabled, QComboBox:disabled, QLineEdit:disabled {{
                 background-color: #777;
                 color: #bbb;
             }}
         """)
+
+
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -187,3 +201,64 @@ class ClassGroup(GroupBox):
             allowed = (op == 1 and st == 1)
             self.combo.setEnabled(allowed)
             self.send_btn.setEnabled(allowed)
+
+
+class ZoomGroup(GroupBox):
+    def __init__(self, flight_interface):
+        super().__init__("Zoom", "Zoom: ---")
+        self.flight = flight_interface
+        
+        # Text input for zoom
+        self.zoom_input = QLineEdit()
+        self.zoom_input.setPlaceholderText("1.0 - 10.0")
+        self.zoom_input.setAlignment(Qt.AlignCenter)
+        self.zoom_input.setText("1.0")
+        
+        self.send_btn = QPushButton("Send")
+        
+        # Use inner_layout (your original name)
+        self.inner_layout.addWidget(self.zoom_input, stretch=1)
+        self.inner_layout.addWidget(self.send_btn)
+        
+        # Connect signals
+        self.send_btn.clicked.connect(self._send_zoom)
+        self.zoom_input.returnPressed.connect(self._send_zoom)
+
+    def _send_zoom(self):
+        try:
+            zoom_text = self.zoom_input.text().strip()
+            if not zoom_text:
+                return
+                
+            zoom_level = float(zoom_text)
+            
+            if not (1.0 <= zoom_level <= 10.0):
+                print(f"⚠️ Zoom must be between 1.0 and 10.0")
+                return
+                
+            self.flight.send_zoom(zoom_level)
+            
+            # Visual feedback
+            self.zoom_input.setStyleSheet("border: 2px solid #4CAF50;")
+            QTimer.singleShot(800, lambda: self.zoom_input.setStyleSheet(""))
+            
+        except ValueError:
+            print("❌ Please enter a valid number (e.g. 2.5)")
+        except Exception as e:
+            print("Error sending zoom:", e)
+
+    def update_from_flight(self, zoom: float | None, initialized: bool):
+        if not initialized:
+            self.state_label.setText("Zoom: ---")
+            self.zoom_input.setEnabled(False)
+            self.send_btn.setEnabled(False)
+            return
+
+        if zoom is not None:
+            self.state_label.setText(f"Zoom: {zoom:.1f}x")
+            self.zoom_input.setText(f"{zoom:.1f}")
+        else:
+            self.state_label.setText("Zoom: ---")
+
+        self.zoom_input.setEnabled(True)
+        self.send_btn.setEnabled(True)
