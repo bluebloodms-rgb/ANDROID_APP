@@ -7,7 +7,7 @@ import serial.tools.list_ports
 from ui.widgets import OperationGroup, ModeGroup, SpeedGroup, ClassGroup,ZoomGroup
 from core.camera_interface import CameraInterface
 from core.flight_interface import FlightState
-from utils.frame_overlay import FrameOverlay
+from utils.frame_overlay import FrameOverlay, cornerRect
 
 class ConnectionIndicator(QWidget):
     def __init__(self, parent=None):
@@ -38,6 +38,8 @@ class MainWindow(QMainWindow):
         self.camera = CameraInterface()
         self.camera.frame_ready.connect(self._update_frame)
         self.camera.camera_error.connect(self._on_camera_error)
+        self.mouse_x = 0
+        self.mouse_y = 0
 
 
 
@@ -79,6 +81,9 @@ class MainWindow(QMainWindow):
             }
         """)
         self.layout.addWidget(self.video_label, stretch=1)
+        self.video_label.setMouseTracking(True)
+        self.video_label.mouseMoveEvent = self.on_video_mouse_move
+        self.video_label.mousePressEvent = self.on_video_mouse_press   # ← ADD THIS LINE
 
     def _setup_control_groups(self):
         container = QWidget()
@@ -156,8 +161,7 @@ class MainWindow(QMainWindow):
         self.menuBar().setCornerWidget(container, Qt.TopRightCorner)
 
     def _update_connection_indicator(self, connection_state):
-        # print("mani_window:_update_connection_indicator: Connection state:", connection_state)
-        # 🔵 Connection indicator
+
         if connection_state == FlightState.CONNECTED:
             self.connection_indicator.set_color(QColor("green"))
             is_connected = True
@@ -177,8 +181,6 @@ class MainWindow(QMainWindow):
         self.class_group.setEnabled(is_connected)
 
     def _update_from_flight(self, state):
-        # print("Connection state:", state.connection_state)
-        # self._update_connection_indicator(state.connection_state)
 
         self.operation_group.update_from_flight(state.op, state.mode, state.initialized)
         self.mode_group.update_from_flight(state.md, state.initialized)
@@ -216,23 +218,76 @@ class MainWindow(QMainWindow):
             self.camera.start_camera(cameras[0])
         else:
             self.video_label.setText("No camera detected")
-
     def _update_frame(self, frame):
+        
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         bytes_per_line = ch * w
-        image = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
+
+        display_frame = rgb.copy()
+
+        # Draw targeting reticle at mouse position
+        if hasattr(self, 'mouse_x') and hasattr(self, 'mouse_y'):
+            reticle_size = 50                    # ← Smaller size (was 80)
+            half = reticle_size // 2
+            
+            x = int(self.mouse_x * w / self.video_label.width())
+            y = int(self.mouse_y * h / self.video_label.height())
+            
+            display_frame = cornerRect(
+                display_frame,
+                (x - half, y - half, reticle_size, reticle_size),   # Smaller reticle
+                l=18,           # Corner length
+                t=2,            # Line thickness
+                t_center=2,
+                a_c=4,
+                m_p=3,
+                colorR=(0, 255, 120),
+                colorC=(0, 255, 120)
+            )
+
+        # Rest of your code (QImage + overlay + scaling)
+        image = QImage(display_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(image)
 
         overlay = FrameOverlay(self.app_controller.flight_interface.state)
         pixmap = overlay.draw(pixmap)
 
-        self.video_label.setPixmap(pixmap.scaled(
+        scaled_pixmap = pixmap.scaled(
             self.video_label.size(),
             Qt.IgnoreAspectRatio,
             Qt.SmoothTransformation
-        ))
+        )
+        self.video_label.setPixmap(scaled_pixmap)
+    def on_video_mouse_press(self, event):
+        if event.button() == Qt.LeftButton:
+            label_x = event.position().x()
+            label_y = event.position().y()
 
+            # === AUTOMATIC FRAME SIZE DETECTION ===
+            if hasattr(self.camera.worker, 'last_frame_shape') and self.camera.worker.last_frame_shape:
+                frame_h, frame_w = self.camera.worker.last_frame_shape[:2]
+                print(f'{frame_h} , {frame_w} ')
+            else:
+                frame_w, frame_h = 1280, 720   # fallback
+
+            real_x = int(label_x * frame_w / max(self.video_label.width(), 1))
+            real_y = int(label_y * frame_h / max(self.video_label.height(), 1))
+
+            print(f"🖱️ Clicked → Label({label_x:.0f}, {label_y:.0f}) | "
+                  f"Frame({real_x}, {real_y})")
+            self.app_controller.flight_interface.send_target_position(real_x, real_y)
+
+            self.last_click_x = real_x
+            self.last_click_y = real_y
+
+
+
+
+    def on_video_mouse_move(self, event):
+        """Track mouse movement over video"""
+        self.mouse_x = event.position().x()
+        self.mouse_y = event.position().y()
     def _on_camera_error(self, msg):
         self.video_label.setText(msg)
 

@@ -36,6 +36,7 @@ class CameraWorker(QObject):
         while self._running:
             ret, frame = self.cap.read()
             if ret:
+                self.last_frame_shape = frame.shape
                 self.frame_ready.emit(frame)
             else:
                 cv2.waitKey(50)

@@ -76,3 +76,55 @@ class FrameOverlay:
 
         painter.end()
         return pixmap
+
+import cv2
+
+def calculate_midpoint(x1, y1, x2, y2):
+    return (x1 + x2) / 2, (y1 + y2) / 2
+
+
+def cornerRect(img, bbox, l=30, t=5, t_center=2, a_c=4, m_p=3,
+               colorR=(0, 255, 0), colorC=(0, 255, 0)):
+    """Draws a fancy targeting reticle around a bounding box"""
+    x, y, w, h = bbox
+    x1, y1 = x + w, y + h
+    center_x, center_y = x + w / 2, y + h / 2
+
+    new_w, new_h = w / a_c, h / a_c
+    new_x, new_y = center_x - new_w / 2, center_y - new_h / 2
+
+    # Center small rectangle
+    cv2.rectangle(img, (int(new_x), int(new_y)), 
+                        (int(new_x + new_w), int(new_y + new_h)), 
+                        colorR, t_center)
+
+    # Lines from center to corners
+    cv2.line(img, (int(new_x + new_w / 2), int(new_y)), (int(x + w / 2), y), colorC, t)
+    cv2.line(img, (int(new_x), int(new_y + new_h / 2)), (int(x), int(y + h / 2)), colorC, t)
+    cv2.line(img, (int(new_x + new_w), int(new_y + new_h / 2)), (int(x + w), int(y + h / 2)), colorC, t)
+    cv2.line(img, (int(new_x + new_w / 2), int(new_y + new_h)), (int(x + w / 2), int(y + h)), colorC, t)
+
+    # Small perpendicular marks
+    mid_x1, mid_y1 = calculate_midpoint(int(new_x + new_w / 2), int(new_y), int(x + w / 2), y)
+    cv2.line(img, (int(mid_x1 - m_p), int(mid_y1)), (int(mid_x1 + m_p), int(mid_y1)), colorC, t)
+
+    mid_x2, mid_y2 = calculate_midpoint(int(new_x), int(new_y + new_h / 2), int(x), int(y + h / 2))
+    cv2.line(img, (int(mid_x2), int(mid_y2 - m_p)), (int(mid_x2), int(mid_y2 + m_p)), colorC, t)
+
+    mid_x3, mid_y3 = calculate_midpoint(int(new_x + new_w), int(new_y + new_h / 2), int(x + w), int(y + h / 2))
+    cv2.line(img, (int(mid_x3), int(mid_y3 - m_p)), (int(mid_x3), int(mid_y3 + m_p)), colorC, t)
+
+    mid_x4, mid_y4 = calculate_midpoint(int(new_x + new_w / 2), int(new_y + new_h), int(x + w / 2), int(y + h))
+    cv2.line(img, (int(mid_x4 - m_p), int(mid_y4)), (int(mid_x4 + m_p), int(mid_y4)), colorC, t)
+
+    # Corner L shapes
+    cv2.line(img, (x, y), (x + l, y), colorC, t)
+    cv2.line(img, (x, y), (x, y + l), colorC, t)
+    cv2.line(img, (x1, y), (x1 - l, y), colorC, t)
+    cv2.line(img, (x1, y), (x1, y + l), colorC, t)
+    cv2.line(img, (x, y1), (x + l, y1), colorC, t)
+    cv2.line(img, (x, y1), (x, y1 - l), colorC, t)
+    cv2.line(img, (x1, y1), (x1 - l, y1), colorC, t)
+    cv2.line(img, (x1, y1), (x1, y1 - l), colorC, t)
+
+    return img

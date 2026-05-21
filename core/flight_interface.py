@@ -20,6 +20,8 @@ class FlightState:
         self.cls = 0     # 0 = Person, 2 = Car
         self.spd = 1.5   # m/s
         self.zoom = None # ← NEW: Add this line
+        self.mouse_x = None
+        self.mouse_y = None
 
         # Telemetry for overlays
         self.battery = None
@@ -406,6 +408,12 @@ class FlightInterface(QObject):
     def send_cancel(self):
         print("cancel")
         self.send_statustext("CANCEL:TRUE,Notcare:TRUE")
+
+    def send_target_position(self, x: int, y: int):
+        """Send target position to flight controller when user clicks."""
+        msg = f"Pos:{x},{y}"
+        print(f"📤 Sending Position: {msg}")
+        self.send_statustext(msg)
 
     def send_zoom(self, zoom_level: float):
         """Send zoom command (1.0 to 10.0)"""
