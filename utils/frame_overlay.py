@@ -2,23 +2,29 @@ from PySide6.QtGui import QPainter, QColor, QFont, QFontMetrics
 from PySide6.QtCore import Qt
 import math
 
+import math
+from PySide6.QtGui import QPainter, QColor, QFont, QFontMetrics
+from PySide6.QtCore import Qt
+
 class FrameOverlay:
     """Draw telemetry overlay on top of a QPixmap frame."""
 
     def __init__(self, flight_state):
         self.state = flight_state
 
-        self.margin = 2
-        self.padding = 5
-        self.radius = 5
-        self.alpha = 120
+        self.margin = 5
+        self.padding = 8
+        self.radius = 6
+        self.alpha = 160
 
-        self.font = QFont("Arial", 10)
+        self.font = QFont("Arial", 9)
 
-    def _floor2(self, value):
+    def _format_value(self, value, unit=""):
         if value is None:
             return "---"
-        return f"{math.floor(value * 100) / 100:.2f}"
+        if isinstance(value, float):
+            return f"{value:.1f}{unit}"
+        return f"{value}{unit}"
 
     def draw(self, pixmap):
         painter = QPainter(pixmap)
@@ -27,28 +33,24 @@ class FrameOverlay:
 
         fm = QFontMetrics(self.font)
 
-        # -------- TELEMETRY TEXT --------
-        rows = [
-            ("Battery:",     self._floor2(self.state.battery)),
-            ("Altitude:",    self._floor2(self.state.altitude)),
-            ("Hdop:",        "---" if self.state.hdop is None else f"{self.state.hdop:.2f}"),
-            ("SatNum:",  "---" if self.state.satellites is None else str(self.state.satellites)),
-            ("Mode:",        self.state.mode or "---"),
+        # -------- TELEMETRY DATA (مخفف شده) --------
+        items = [
+            ("Bat", self._format_value(self.state.battery, "V")),
+            ("Alt", self._format_value(self.state.altitude, "m")),
+            ("Hdop", "---" if self.state.hdop is None else f"{self.state.hdop:.1f}"),
+            ("Sat", "---" if self.state.satellites is None else str(self.state.satellites)),
+            ("Mode", self.state.mode[:4] if self.state.mode else "---"),
         ]
 
-        # -------- CALCULATE COLUMN WIDTHS --------
-        label_width = max(fm.horizontalAdvance(label) for label, _ in rows)
-        value_width = max(fm.horizontalAdvance(value) for _, value in rows)
+        # -------- محاسبه عرض هر آیتم --------
+        item_widths = []
+        for label, value in items:
+            label_w = fm.horizontalAdvance(label)
+            value_w = fm.horizontalAdvance(value)
+            item_widths.append(max(label_w, value_w) + self.padding * 2)
 
-        line_height = fm.height()
-        total_height = line_height * len(rows)
-
-        rect_width = (
-            self.padding * 3 +
-            label_width +
-            value_width
-        )
-        rect_height = total_height + self.padding * 2
+        line_height = fm.height() * 2 + 4
+        total_width = sum(item_widths) + self.margin * 2 + self.padding * (len(items) - 1)
 
         x = self.margin
         y = self.margin
@@ -58,25 +60,29 @@ class FrameOverlay:
         painter.setBrush(QColor(0, 0, 0, self.alpha))
         painter.drawRoundedRect(
             x, y,
-            rect_width, rect_height,
+            total_width, line_height + 8,
             self.radius, self.radius
         )
 
-        # -------- DRAW TEXT --------
+        # -------- DRAW TEXT (افقی) --------
         painter.setPen(QColor(0, 255, 0))
+        
+        current_x = x + self.padding
+        text_y_label = y + self.padding + fm.ascent()
+        text_y_value = text_y_label + fm.height()
 
-        text_x_label = x + self.padding
-        text_x_value = text_x_label + label_width + self.padding
-        text_y = y + self.padding + fm.ascent()
-
-        for label, value in rows:
-            painter.drawText(text_x_label, text_y, label)
-            painter.drawText(text_x_value, text_y, value)
-            text_y += line_height
+        for label, value in items:
+            # متن عنوان (مخفف)
+            painter.drawText(current_x, text_y_label, label)
+            
+            # مقدار
+            painter.drawText(current_x, text_y_value, value)
+            
+            # بروزرسانی موقعیت X برای آیتم بعدی
+            current_x += item_widths[items.index((label, value))] + self.padding
 
         painter.end()
         return pixmap
-
 import cv2
 
 def calculate_midpoint(x1, y1, x2, y2):

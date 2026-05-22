@@ -1,13 +1,15 @@
 import cv2
 from PySide6.QtWidgets import QMainWindow, QWidget, QLabel, QVBoxLayout, QSizePolicy, QMenu, QHBoxLayout, QVBoxLayout
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize,QTimer
 from PySide6.QtGui import QImage, QPixmap, QAction, QPainter, QColor
 import serial.tools.list_ports
 
-from ui.widgets import OperationGroup, ModeGroup, SpeedGroup, ClassGroup,ZoomGroup
+from ui.widgets import ControlBar
 from core.camera_interface import CameraInterface
 from core.flight_interface import FlightState
 from utils.frame_overlay import FrameOverlay, cornerRect
+from ui.zoom_slider import CustomZoomSlider
+from ui.steer_slider import CustomSteerSlider
 
 class ConnectionIndicator(QWidget):
     def __init__(self, parent=None):
@@ -33,6 +35,26 @@ class MainWindow(QMainWindow):
 
         self.app_controller = app_controller
         self.setWindowTitle("Drone Control GUI")
+                # تم دارک برای پنجره اصلی
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #1e1e1e;
+            }
+            QMenuBar {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            QMenuBar::item:selected {
+                background-color: #3d3d3d;
+            }
+            QMenu {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            QMenu::item:selected {
+                background-color: #3d3d3d;
+            }
+        """)
         self.resize(1100, 700)
 
         self.camera = CameraInterface()
@@ -40,6 +62,8 @@ class MainWindow(QMainWindow):
         self.camera.camera_error.connect(self._on_camera_error)
         self.mouse_x = 0
         self.mouse_y = 0
+        self.current_zoom=1
+        self.current_steer = 0  # اضافه کن
 
 
 
@@ -47,7 +71,50 @@ class MainWindow(QMainWindow):
         self._setup_menubar()
         self._setup_connection_indicator()
         self._start_default_camera()
-        self._setup_control_groups()
+        self._setup_overlay_controls()
+
+            # اضافه کردن اسلایدر زوم (بعد از خط بالا)
+        self.zoom_overlay = QWidget(self.video_label)
+        self.zoom_overlay.setStyleSheet("background-color: transparent;")
+        self.zoom_slider = CustomZoomSlider(self.zoom_overlay, main_window=self)
+        self.zoom_value_label = QLabel(self.video_label)  # parent = video_label
+
+        self.zoom_value_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 200);
+                color: #FFD700;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 6px;
+                padding: 4px 8px;
+            }
+        """)
+        self.zoom_value_label.setAlignment(Qt.AlignCenter)
+        self.zoom_value_label.setText("1.0X")
+        self.zoom_value_label.resize(50, 28)
+
+
+        self.steer_overlay = QWidget(self.video_label)
+        self.steer_overlay.setStyleSheet("background-color: transparent;")
+        self.steer_slider = CustomSteerSlider(self.steer_overlay, main_window=self)
+
+        self.steer_value_label = QLabel(self.video_label)
+        self.steer_value_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 200);
+                color: #00BFFF;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 6px;
+                padding: 4px 8px;
+            }
+        """)
+        self.steer_value_label.setAlignment(Qt.AlignCenter)
+        self.steer_value_label.setText("0°")
+        self.steer_value_label.resize(50, 28)
+
+
+        
 
         self.app_controller.flight_interface.register_ui_callback(
             self._update_from_flight
@@ -75,35 +142,23 @@ class MainWindow(QMainWindow):
         self.video_label.setScaledContents(True)
         self.video_label.setStyleSheet("""
             QLabel {
-                background-color: #1e1e1e;
-                color: #aaaaaa;
-                border: 2px solid #333;
+                background-color: #0d0d0d;
+                color: #cccccc;
+                border: 2px solid #3d3d3d;
             }
         """)
         self.layout.addWidget(self.video_label, stretch=1)
+        # Overlay container برای کنترل‌ها (روی تصویر)
+        self.controls_overlay = QWidget(self.video_label)
+        self.controls_overlay.setStyleSheet("background-color: transparent;")
+        self.controls_overlay.setGeometry(0, 0, 100, 90)
+       
+
         self.video_label.setMouseTracking(True)
         self.video_label.mouseMoveEvent = self.on_video_mouse_move
         self.video_label.mousePressEvent = self.on_video_mouse_press   # ← ADD THIS LINE
 
-    def _setup_control_groups(self):
-        container = QWidget()
-        container_layout = QHBoxLayout()
-        container_layout.setSpacing(15)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container.setLayout(container_layout)
 
-        fi = self.app_controller.flight_interface
-        self.operation_group = OperationGroup(fi)
-        self.mode_group = ModeGroup(fi)
-        self.speed_group = SpeedGroup(fi)
-        self.class_group = ClassGroup(fi)
-        self.zoom_group = ZoomGroup(fi)           # ← NEW
-
-        for g in [self.operation_group, self.mode_group, self.speed_group, self.class_group,self.zoom_group]:
-            g.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            container_layout.addWidget(g)
-
-        self.layout.addWidget(container)
 
     def _setup_menubar(self):
         menubar = self.menuBar()
@@ -144,6 +199,15 @@ class MainWindow(QMainWindow):
         #         a.setChecked(True)
         #         self.app_controller.flight_interface.connect(a.text().replace(" *", ""))
 
+    def _setup_overlay_controls(self):
+        fi = self.app_controller.flight_interface
+        self.control_bar = ControlBar(fi, parent=self.controls_overlay)
+        
+        layout = QHBoxLayout(self.controls_overlay)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.control_bar)
+        QTimer.singleShot(100, self._update_overlay_position)
+
     def _setup_connection_indicator(self):
         # ===========================================================
         # menuBar()    = The kitchen counter
@@ -175,18 +239,32 @@ class MainWindow(QMainWindow):
             self.connection_indicator.set_color(QColor("black"))
             is_connected = False
 
-        self.operation_group.setEnabled(is_connected)
-        self.mode_group.setEnabled(is_connected)
-        self.speed_group.setEnabled(is_connected)
-        self.class_group.setEnabled(is_connected)
+
 
     def _update_from_flight(self, state):
+        self.control_bar.update_from_flight(
+            op=state.op,
+            mode=state.md,
+            spd=state.spd,
+            cls=state.cls,
+            initialized=state.initialized
+        )
+            # بروزرسانی اسلایدر زوم اگر مقدار zoom از flight controller آمد
+        if hasattr(self, 'zoom_slider') and state.zoom is not None:
+            self.zoom_slider.set_zoom(state.zoom)
+            self.current_zoom = state.zoom
+            if hasattr(self, 'zoom_value_label'):
+                self.zoom_value_label.setText(f"{state.zoom:.1f}X")
+                # ========== اضافه کن: بروزرسانی اسلایدر زاویه از state.spd ==========
+        if hasattr(self, 'steer_slider') and state.spd is not None:
+            # spd در محدوده 0 تا 90 است (درجه)
+            self.steer_slider.set_steer(state.spd)
+            self.current_steer = state.spd
+            if hasattr(self, 'steer_value_label'):
+                self.steer_value_label.setText(f"{state.spd:.0f}°")
+        # ===================================================================
+        
 
-        self.operation_group.update_from_flight(state.op, state.mode, state.initialized)
-        self.mode_group.update_from_flight(state.md, state.initialized)
-        self.speed_group.update_from_flight(state.spd, state.op, state.st, state.initialized)
-        self.class_group.update_from_flight(state.cls, state.op, state.st, state.initialized)
-        self.zoom_group.update_from_flight(state.zoom, state.initialized)
 
 
     def _switch_camera(self, camera_index):
@@ -259,6 +337,12 @@ class MainWindow(QMainWindow):
             Qt.SmoothTransformation
         )
         self.video_label.setPixmap(scaled_pixmap)
+        if hasattr(self, 'controls_overlay'):
+                self._update_overlay_position()
+                self._update_zoom_position()  # اضافه کن
+                self._update_steer_position()
+    
+
     def on_video_mouse_press(self, event):
         if event.button() == Qt.LeftButton:
             label_x = event.position().x()
@@ -291,6 +375,122 @@ class MainWindow(QMainWindow):
     def _on_camera_error(self, msg):
         self.video_label.setText(msg)
 
+    def resizeEvent(self, event):
+        """تنظیم مجدد موقعیت overlay هنگام تغییر سایز پنجره"""
+        if hasattr(self, 'controls_overlay') and hasattr(self, 'video_label'):
+            # تاخیر کوچک برای اطمینان از اعمال اندازه‌های جدید
+            QTimer.singleShot(10, self._update_overlay_position)
+
+        if hasattr(self, 'zoom_overlay') and hasattr(self, 'video_label'):
+            QTimer.singleShot(10, self._update_zoom_position)  # 
+        if hasattr(self, 'steer_overlay') and hasattr(self, 'video_label'):
+                QTimer.singleShot(10, self._update_steer_position)
+        
+
+    # ====================================
+    
+        super().resizeEvent(event)
+    def _update_zoom_position(self):
+        """به‌روزرسانی موقعیت اسلایدر زوم (سمت راست، وسط عمودی)"""
+        if not hasattr(self, 'zoom_overlay') or not hasattr(self, 'video_label'):
+            return
+        
+        label_width = self.video_label.width()
+        label_height = self.video_label.height()
+        
+        if label_width < 100 or label_height < 100:
+            return
+        
+        slider_width = 80
+        slider_height = 400
+        x = label_width - slider_width - 20
+        y = (label_height - slider_height) // 2
+        
+        self.zoom_overlay.setGeometry(x, y, slider_width, slider_height)
+        self.zoom_overlay.raise_()
+        # ========== موقعیت label بالای اسلایدر ==========
+        if hasattr(self, 'zoom_value_label'):
+            label_x = x + 15  # same x as slider + offset
+            label_y = y - 30  # بالای اسلایدر
+            self.zoom_value_label.setGeometry(label_x, label_y, 60, 32)
+            self.zoom_value_label.raise_()
+        # ===============================================
+
+
+    def _update_steer_position(self):
+            """به‌روزرسانی موقعیت اسلایدر زاویه (سمت چپ، وسط عمودی)"""
+            if not hasattr(self, 'steer_overlay') or not hasattr(self, 'video_label'):
+                return
+            
+            label_width = self.video_label.width()
+            label_height = self.video_label.height()
+            
+            if label_width < 100 or label_height < 100:
+                return
+            
+            slider_width = 80
+            slider_height = 400
+            x = 20  # سمت چپ
+            y = (label_height - slider_height) // 2
+            
+            self.steer_overlay.setGeometry(x, y, slider_width, slider_height)
+            self.steer_overlay.raise_()
+            
+            # موقعیت label بالای اسلایدر
+            if hasattr(self, 'steer_value_label'):
+                label_x = x + 15
+                label_y = y - 30
+                self.steer_value_label.setGeometry(label_x, label_y, 50, 28)
+                self.steer_value_label.raise_()
+
+    def update_zoom_display(self, value):
+        print(f"Zoom: {value:.1f}x")
+        if hasattr(self, 'zoom_value_label'):
+            self.zoom_value_label.setText(f"{value:.1f}X")
+        self.app_controller.flight_interface.send_zoom(value)
+    def update_steer_display(self, value):
+        """آپدیت نمایش زاویه و ارسال به flight controller"""
+        print(f"Steer: {value:.0f}°")
+        if hasattr(self, 'steer_value_label'):
+            self.steer_value_label.setText(f"{value:.0f}°")
+        self.app_controller.flight_interface.send_speed(value)
+
+        
+    def _update_overlay_position(self):
+        """به‌روزرسانی موقعیت نوار کنترل"""
+        if not hasattr(self, 'controls_overlay') or not hasattr(self, 'video_label'):
+            return
+        
+        # پهنای ثابت برای نوار
+        overlay_width = 1100
+        label_width = self.video_label.width()
+        label_height = self.video_label.height()
+        
+        # اگر هنوز اندازه معتبر نداره، صبر کن
+        if label_width < 100 or label_height < 100:
+            return
+        
+        # محاسبه موقعیت: وسط افقی، پایین عمودی
+        x = (label_width - overlay_width) // 2
+        y = label_height - 100
+        
+        # اطمینان از اینکه موقعیت منفی نباشد
+        x = max(0, x)
+        y = max(0, y)
+        
+        self.controls_overlay.setGeometry(x, y, overlay_width, 90)
+        self.controls_overlay.raise_()
+
+
+
+
+
+    def showEvent(self, event):
+        """وقتی پنجره نمایش داده می‌شود"""
+        super().showEvent(event)
+        QTimer.singleShot(50, self._update_overlay_position)
+        QTimer.singleShot(50, self._update_zoom_position)  # اضافه کن
+        QTimer.singleShot(50, self._update_steer_position)
     def closeEvent(self, event):
         self.camera.stop_camera()
         super().closeEvent(event)

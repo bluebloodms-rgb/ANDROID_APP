@@ -1,264 +1,224 @@
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QSizePolicy,QLineEdit
-from PySide6.QtCore import Qt,QTimer
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy
+from PySide6.QtCore import Qt, QTimer
 
 
-class GroupBox(QWidget):
-    def __init__(self, title: str, default_state="---",
-                 bg_color="#e6e6e6", content_color="#9a9a9a"):
-        super().__init__()
-
-        # ===========================================================
-        # KITCHEN ANALOGY:
-        # ===========================================================
-        # self (GroupBox)     = The entire kitchen counter space
-        # outer (QVBoxLayout) = The empty space on the counter (no placemat)
-        # container (QWidget) = A TRAY placed on the counter (has color)
-        # layout (QVBoxLayout)= Rules for arranging things ON the tray
-        # ===========================================================
-
-        # Outer layout (no background here)
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-
-        # Painted container (ONLY this has background)
-        self.container = QWidget()
-        self.container.setObjectName("groupContainer")
-        outer.addWidget(self.container)
-
-        # Inner layout
-        layout = QVBoxLayout(self.container)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(6)
-
-        # Title
-        self.title_label = QLabel(title)
-        self.title_label.setStyleSheet(
-            "font-weight: 600; font-size: 13px; background: transparent;"
-        )
-
-        # State label (read-only)
-        self.state_label = QLabel(default_state)
-        self.state_label.setStyleSheet(
-            "color: #444; font-size: 11px; background: transparent;"
-        )
-
-        layout.addWidget(self.title_label)
-        layout.addWidget(self.state_label)
-
-        # Controls layout
-        self.inner_layout = QHBoxLayout()
-        self.inner_layout.setSpacing(10)
-        layout.addLayout(self.inner_layout)
-        # ==================== UPDATED STYLESHEET ====================
-        self.container.setStyleSheet(f"""
-            QWidget#groupContainer {{
-                background-color: {bg_color};
-                border-radius: 12px;
-            }}
-            
-            QPushButton, QComboBox, QLineEdit {{
-                border-radius: 6px;
-                padding: 6px;
-                background-color: {content_color};
-                color: #fff;
-            }}
-            
-            QLineEdit {{
-                border: 1px solid #555;
-                padding: 5px 8px;
-            }}
-            
-            QLineEdit:focus {{
-                border: 2px solid #4CAF50;
-                background-color: #333;
-            }}
-            
-            QPushButton:disabled, QComboBox:disabled, QLineEdit:disabled {{
-                background-color: #777;
-                color: #bbb;
-            }}
+class ControlBar(QWidget):
+    """نوار کنترل پایین صفحه - فقط دکمه‌ها کنار هم"""
+    
+    def __init__(self, flight_interface, parent=None):
+        super().__init__(parent)
+                # تم دارک برای خود نوار
+        self.setStyleSheet("""
+            QWidget {
+                background-color: rgba(30, 30, 30, 200);
+                border-radius: 10px;
+            }
         """)
-
-
-
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-class OperationGroup(GroupBox):
-    def __init__(self, flight_interface):
-        super().__init__("Operation", default_state="Operation: ---")
-        self.flight = flight_interface
-
-        self.start_btn = QPushButton("Start")
-        self.cancel_btn = QPushButton("Cancel")
-
-        self.inner_layout.addWidget(self.start_btn)
-        self.inner_layout.addWidget(self.cancel_btn)
-        self.start_btn.clicked.connect(
-            lambda: self.flight.send_operation(2)
-        )
-        self.cancel_btn.clicked.connect(
-            lambda: self.flight.send_operation(1)
-        )
-
-    def update_from_flight(self, op, mode, initialized):
-        if not initialized:
-            self.state_label.setText("Operation: Not started")
-            # Disable buttons completely
-            self.start_btn.setEnabled(False)
-            self.cancel_btn.setEnabled(False)
-            return
-
-        text = "Ready" if op == 1 else "In operation"
-        self.state_label.setText(f"Operation: {text}")
-        start_allowed = mode == "GUIDED"
-        self.start_btn.setEnabled(start_allowed)
-        self.cancel_btn.setEnabled(True)
-
-class ModeGroup(GroupBox):
-    def __init__(self, flight_interface):
-        super().__init__("Mode", default_state="Operation: ---")
-        self.flight = flight_interface
-
-        self.manual_btn = QPushButton("Manual")
-        self.auto_btn = QPushButton("Automate")
-
-        self.inner_layout.addWidget(self.manual_btn)
-        self.inner_layout.addWidget(self.auto_btn)
-
-        self.manual_btn.clicked.connect(
-            lambda: self.flight.send_mode(1)
-        )
-        self.auto_btn.clicked.connect(
-            lambda: self.flight.send_mode(2)
-        )
-
-    def update_from_flight(self, md, initialized):
-        if not initialized:
-            self.state_label.setText("Mode: ---")
-            # Disable buttons completely
-            self.manual_btn.setEnabled(False)
-            self.auto_btn.setEnabled(False)
-        else:
-            text = "Manual" if md == 1 else "Automatic"
-            self.state_label.setText(f"Mode: {text}")
-            self.manual_btn.setEnabled(True)
-            self.auto_btn.setEnabled(True)
-
-
-class SpeedGroup(GroupBox):
-    def __init__(self, flight_interface):
-        super().__init__("Speed", default_state="Operation: ---")
-        self.flight = flight_interface
-
-        self.combo = QComboBox()
-        self.combo.addItems(["1.5", "3.0", "6.0"])
-        self.send_btn = QPushButton("Send")
-
-        self.inner_layout.addWidget(self.combo)
-        self.inner_layout.addWidget(self.send_btn)
-
-        self.send_btn.clicked.connect(
-            lambda: self.flight.send_speed(float(self.combo.currentText()))
-        )
-
-    def update_from_flight(self, spd, op, st, initialized):
-        if not initialized:
-            self.state_label.setText("Speed: ---")
-            self.combo.setEnabled(False)
-            self.send_btn.setEnabled(False)
-        else:
-            self.state_label.setText(f"Speed: {spd} m/s")
-            allowed = (op == 1 and st == 1)
-            self.combo.setEnabled(allowed)
-            self.send_btn.setEnabled(allowed)
-
-class ClassGroup(GroupBox):
-    def __init__(self, flight_interface):
-        super().__init__("Class", default_state="Operation: ---")
-        self.flight = flight_interface
-
-        self.combo = QComboBox()
-        self.combo.addItems(["Person", "Car"])
-        self.send_btn = QPushButton("Send")
-
-        self.inner_layout.addWidget(self.combo)
-        self.inner_layout.addWidget(self.send_btn)
-
-        self.send_btn.clicked.connect(
-            lambda: self.flight.send_class(
-                0 if self.combo.currentText() == "Person" else 2
-            )
-        )
-
-    def update_from_flight(self, cls, op, st, initialized):
-        if not initialized:
-            self.state_label.setText("Target: ---")
-            self.combo.setEnabled(False)
-            self.send_btn.setEnabled(False)
-        else:
-            text = "Person" if cls == 0 else "Car"
-            self.state_label.setText(f"Target: {text}")
-            allowed = (op == 1 and st == 1)
-            self.combo.setEnabled(allowed)
-            self.send_btn.setEnabled(allowed)
-
-
-class ZoomGroup(GroupBox):
-    def __init__(self, flight_interface):
-        super().__init__("Zoom", "Zoom: ---")
         self.flight = flight_interface
         
-        # Text input for zoom
-        self.zoom_input = QLineEdit()
-        self.zoom_input.setPlaceholderText("1.0 - 10.0")
-        self.zoom_input.setAlignment(Qt.AlignCenter)
-        self.zoom_input.setText("1.0")
+        # چیدمان اصلی افقی
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(15)
         
-        self.send_btn = QPushButton("Send")
+        # ========== بخش Operation ==========
+        self.start_btn = QPushButton("START")
+        self.cancel_btn = QPushButton("CANCEL")
+        self.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #388E3C; }
+            QPushButton:disabled { background-color: #777; }
+        """)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #d32f2f; }
+            QPushButton:disabled { background-color: #777; }
+        """)
         
-        # Use inner_layout (your original name)
-        self.inner_layout.addWidget(self.zoom_input, stretch=1)
-        self.inner_layout.addWidget(self.send_btn)
+        self.start_btn.clicked.connect(lambda: self.flight.send_operation(2))
+        self.cancel_btn.clicked.connect(lambda: self.flight.send_operation(1))
         
-        # Connect signals
-        self.send_btn.clicked.connect(self._send_zoom)
-        self.zoom_input.returnPressed.connect(self._send_zoom)
-
-    def _send_zoom(self):
-        try:
-            zoom_text = self.zoom_input.text().strip()
-            if not zoom_text:
-                return
-                
-            zoom_level = float(zoom_text)
+        # ========== بخش Mode ==========
+        self.manual_btn = QPushButton("MANUAL")
+        self.auto_btn = QPushButton("AUTO")
+        self.manual_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #1976D2; }
+            QPushButton:disabled { background-color: #777; }
+        """)
+        self.auto_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #7B1FA2; }
+            QPushButton:disabled { background-color: #777; }
+        """)
+        
+        self.manual_btn.clicked.connect(lambda: self.flight.send_mode(1))
+        self.auto_btn.clicked.connect(lambda: self.flight.send_mode(2))
+        
+        # ========== بخش Speed (3 دکمه) ==========
+        self.speed_1_btn = QPushButton("1.5 m/s")
+        self.speed_3_btn = QPushButton("3.0 m/s")
+        self.speed_6_btn = QPushButton("6.0 m/s")
+        
+        speed_style = """
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #F57C00; }
+            QPushButton:disabled { background-color: #777; }
+        """
+        self.speed_1_btn.setStyleSheet(speed_style)
+        self.speed_3_btn.setStyleSheet(speed_style)
+        self.speed_6_btn.setStyleSheet(speed_style)
+        
+        self.speed_1_btn.clicked.connect(lambda: self.flight.send_speed(1.5))
+        self.speed_3_btn.clicked.connect(lambda: self.flight.send_speed(3.0))
+        self.speed_6_btn.clicked.connect(lambda: self.flight.send_speed(6.0))
+        
+        # ========== بخش Class (3 دکمه با آیکون بعداً) ==========
+        self.person_btn = QPushButton("👤 Person")
+        self.car_btn = QPushButton("🚗 Car")
+        self.balloon_btn = QPushButton("🎈 Balloon")
+        
+        class_style = """
+            QPushButton {
+                background-color: #00BCD4;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #0097A7; }
+            QPushButton:disabled { background-color: #777; }
+        """
+        self.person_btn.setStyleSheet(class_style)
+        self.car_btn.setStyleSheet(class_style)
+        self.balloon_btn.setStyleSheet(class_style)
+        
+        self.person_btn.clicked.connect(lambda: self.flight.send_class(0))
+        self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
+        self.balloon_btn.clicked.connect(lambda: self.flight.send_class(4))  # بالون = 4
+        
+        # ========== اضافه کردن همه به layout ==========
+        # Operation
+        layout.addWidget(self.start_btn)
+        layout.addWidget(self.cancel_btn)
+        
+        # جداکننده بصری (خط عمودی)
+        sep1 = self._make_separator()
+        layout.addWidget(sep1)
+        
+        # Mode
+        layout.addWidget(self.manual_btn)
+        layout.addWidget(self.auto_btn)
+        
+        sep2 = self._make_separator()
+        layout.addWidget(sep2)
+        
+        # Speed
+        layout.addWidget(self.speed_1_btn)
+        layout.addWidget(self.speed_3_btn)
+        layout.addWidget(self.speed_6_btn)
+        
+        sep3 = self._make_separator()
+        layout.addWidget(sep3)
+        
+        # Class
+        layout.addWidget(self.person_btn)
+        layout.addWidget(self.car_btn)
+        layout.addWidget(self.balloon_btn)
+        
+        # کشش به چپ و راست برای وسط‌چین شدن
+        layout.insertStretch(0, 1)
+        layout.addStretch(1)
+        
+        # ذخیره وضعیت برای update_from_flight
+        self.current_op = 1
+        self.current_mode = 1
+        self.current_spd = 1.5
+        self.current_cls = 0
+        self.initialized = False
+        
+    def _make_separator(self):
+        """ساخت جداکننده عمودی بین بخش‌ها"""
+        sep = QWidget()
+        sep.setFixedSize(2, 30)
+        sep.setStyleSheet("background-color: rgba(255,255,255,0.15); border-radius: 1px;")
+        return sep
+        
+    def update_from_flight(self, op=None, mode=None, spd=None, cls=None, initialized=None):
+        """بروزرسانی وضعیت دکمه‌ها بر اساس داده دریافتی"""
+        
+        if initialized is not None:
+            self.initialized = initialized
             
-            if not (1.0 <= zoom_level <= 10.0):
-                print(f"⚠️ Zoom must be between 1.0 and 10.0")
-                return
-                
-            self.flight.send_zoom(zoom_level)
+        if op is not None:
+            self.current_op = op
+        if mode is not None:
+            self.current_mode = mode
+        if spd is not None:
+            self.current_spd = spd
+        if cls is not None:
+            self.current_cls = cls
             
-            # Visual feedback
-            self.zoom_input.setStyleSheet("border: 2px solid #4CAF50;")
-            QTimer.singleShot(800, lambda: self.zoom_input.setStyleSheet(""))
-            
-        except ValueError:
-            print("❌ Please enter a valid number (e.g. 2.5)")
-        except Exception as e:
-            print("Error sending zoom:", e)
-
-    def update_from_flight(self, zoom: float | None, initialized: bool):
-        if not initialized:
-            self.state_label.setText("Zoom: ---")
-            self.zoom_input.setEnabled(False)
-            self.send_btn.setEnabled(False)
-            return
-
-        if zoom is not None:
-            self.state_label.setText(f"Zoom: {zoom:.1f}x")
-            self.zoom_input.setText(f"{zoom:.1f}")
-        else:
-            self.state_label.setText("Zoom: ---")
-
-        self.zoom_input.setEnabled(True)
-        self.send_btn.setEnabled(True)
+        enabled = self.initialized
+        
+        # Operation
+        self.start_btn.setEnabled(enabled)
+        self.cancel_btn.setEnabled(enabled)
+        
+        # Mode
+        self.manual_btn.setEnabled(enabled)
+        self.auto_btn.setEnabled(enabled)
+        
+        # Speed (فقط در حالت آماده به کار و Guided)
+        speed_allowed = enabled and (self.current_op == 1)
+        self.speed_1_btn.setEnabled(speed_allowed)
+        self.speed_3_btn.setEnabled(speed_allowed)
+        self.speed_6_btn.setEnabled(speed_allowed)
+        
+        # Class (فقط در حالت آماده به کار)
+        class_allowed = enabled and (self.current_op == 1)
+        self.person_btn.setEnabled(class_allowed)
+        self.car_btn.setEnabled(class_allowed)
+        self.balloon_btn.setEnabled(class_allowed)
