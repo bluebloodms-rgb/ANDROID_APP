@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt
-
+from PySide6.QtCore import Qt, QSize         
+from PySide6.QtGui import QIcon             
+from pathlib import Path                     
 
 class ControlBar(QWidget):
     """نوار کنترل پایین صفحه"""
@@ -63,19 +64,68 @@ class ControlBar(QWidget):
         self.speed_3_btn.clicked.connect(lambda: self.flight.send_speed(19))
         self.speed_6_btn.clicked.connect(lambda: self.flight.send_speed(22))
 
-        # ==================== Class ====================
-        self.person_btn = QPushButton("👤 Person")
-        self.car_btn = QPushButton("🚗 Car")
-        self.balloon_btn = QPushButton("🎈 Balloon")
 
-        class_style = self._button_style("#00BCD4", "#0097A7")
+                # ========== بخش Class (با آیکون) ==========
+        assets_path = Path(__file__).parent.parent / "assets"
+        
+        print("Assets Path:", assets_path)
+        print("people.png exists:", (assets_path / "people.png").exists())
+        print("sedan.png exists:", (assets_path / "sedan.png").exists())
+        print("balloon.png exists:", (assets_path / "balloon.png").exists())
+
+        self.person_btn = QPushButton(" Person")
+        self.car_btn = QPushButton(" Car")
+        self.balloon_btn = QPushButton(" Balloon")
+
+        # بارگذاری آیکون‌ها
+        if (assets_path / "people.png").exists():
+            self.person_btn.setIcon(QIcon(str(assets_path / "people.png")))
+            print("✓ Person icon loaded")
+        else:
+            print("✗ people.png NOT FOUND")
+
+        if (assets_path / "sedan.png").exists():
+            self.car_btn.setIcon(QIcon(str(assets_path / "sedan.png")))
+            print("✓ Car icon loaded")
+        else:
+            print("✗ sedan.png NOT FOUND")
+
+        if (assets_path / "balloon.png").exists():
+            self.balloon_btn.setIcon(QIcon(str(assets_path / "balloon.png")))
+            print("✓ Balloon icon loaded")
+        else:
+            print("✗ balloon.png NOT FOUND")
+
+        icon_size = QSize(28, 28)
+        self.person_btn.setIconSize(icon_size)
+        self.car_btn.setIconSize(icon_size)
+        self.balloon_btn.setIconSize(icon_size)
+
+        class_style = """
+            QPushButton {
+                background-color: #00BCD4;
+                color: white;
+                border: none;
+                padding: 8px 16px 8px 6px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                text-align: left;
+            }
+            QPushButton:hover { background-color: #0097A7; }
+            QPushButton:disabled { background-color: #777; }
+        """
         self.person_btn.setStyleSheet(class_style)
         self.car_btn.setStyleSheet(class_style)
         self.balloon_btn.setStyleSheet(class_style)
-
+        
         self.person_btn.clicked.connect(lambda: self.flight.send_class(1))
         self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
         self.balloon_btn.clicked.connect(lambda: self.flight.send_class(0))
+
+
+
+
 
         # ==================== Layout ====================
         layout.addStretch(1)
