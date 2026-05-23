@@ -19,9 +19,11 @@ class FlightState:
         self.md = 1      # 1 = Manual, 2 = Automatic
         self.cls = 0     # 0 = Person, 2 = Car
         self.spd = 1.5   # m/s
+        self.pitch = None     # ← اضافه کن
         self.zoom = None # ← NEW: Add this line
         self.mouse_x = None
         self.mouse_y = None
+        
 
         # Telemetry for overlays
         self.battery = None
@@ -49,8 +51,10 @@ class FlightState:
                 self.cls = int(v)
             elif k == "Spd":
                 self.spd = float(v)
-            elif k == "Zoom":                    # ← NEW
+            elif k == "Zoom":                 
                 self.zoom = float(v)
+            elif k == "Pitch":                    
+                self.pitch = float(v)
 
 class FlightInterface(QObject):
     connection_state_changed = Signal(str)
@@ -423,4 +427,13 @@ class FlightInterface(QObject):
         
         msg = f"Zoom:{zoom_level:.1f}"
         print(f"📤 Sending Zoom: {msg}")
+        self.send_statustext(msg)
+    def send_pitch(self, pitch_value: float):
+        """Send pitch command (مثلاً زاویه steering)"""
+        if not (0 <= pitch_value <= 90):   # محدوده دلخواه تو
+            print(f"❌ Pitch value must be between 0 and 90 (got {pitch_value})")
+            return
+        
+        msg = f"Pitch:{pitch_value:.1f}"
+        print(f"📤 Sending Pitch: {msg}")
         self.send_statustext(msg)

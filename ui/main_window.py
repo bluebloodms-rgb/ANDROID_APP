@@ -258,13 +258,17 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'zoom_value_label'):
                 self.zoom_value_label.setText(f"{state.zoom:.1f}X")
                 # ========== اضافه کن: بروزرسانی اسلایدر زاویه از state.spd ==========
-        if hasattr(self, 'steer_slider') and state.spd is not None:
-            # spd در محدوده 0 تا 90 است (درجه)
-            self.steer_slider.set_steer(state.spd)
-            self.current_steer = state.spd
+
+                # ========== بروزرسانی اسلایدر زاویه (Steer / Pitch) ==========
+        if hasattr(self, 'steer_slider') and state.pitch is not None:
+            # pitch در محدوده 0 تا 90 درجه است
+            self.steer_slider.set_steer(state.pitch)
+            self.current_steer = state.pitch
+            
             if hasattr(self, 'steer_value_label'):
-                self.steer_value_label.setText(f"{state.spd:.0f}°")
+                self.steer_value_label.setText(f"{state.pitch:.0f}°")
         # ===================================================================
+
         
 
 
@@ -487,7 +491,7 @@ class MainWindow(QMainWindow):
         print(f"Steer: {value:.0f}°")
         if hasattr(self, 'steer_value_label'):
             self.steer_value_label.setText(f"{value:.0f}°")
-        self.app_controller.flight_interface.send_speed(value)
+        self.app_controller.flight_interface.send_pitch(value)
 
         
     def _update_overlay_position(self):
