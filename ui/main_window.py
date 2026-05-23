@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
         for idx in cameras:
             action = QAction(f"Camera {idx}", self)
             action.setCheckable(True)
-            action.triggered.connect(lambda checked, i=idx: self._switch_camera(i))
+            action.triggered.connect(lambda _, i=idx: self._switch_camera(i))
             camera_menu.addAction(action)
             self.camera_actions.append(action)
 
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
             action = QAction(label, self)
             action.setCheckable(True)
 
-            action.triggered.connect(lambda checked, d=device: self._switch_com(d))
+            action.triggered.connect(lambda _, d=device: self._switch_com(d))
             flight_menu.addAction(action)
             self.flight_actions.append(action)
 
