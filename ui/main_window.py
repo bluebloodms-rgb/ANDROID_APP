@@ -324,7 +324,6 @@ class MainWindow(QMainWindow):
                      box_color, 1)
         # =========================================================
 
-# =============== نمایش نشانگر فقط داخل مستطیل ===============
         if hasattr(self, 'mouse_x') and hasattr(self, 'mouse_y'):
             # تبدیل موقعیت موس از QLabel به فریم
             mouse_frame_x = int(self.mouse_x * w / max(self.video_label.width(), 1))

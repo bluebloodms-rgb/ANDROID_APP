@@ -135,9 +135,9 @@ class ControlBar(QWidget):
         self.car_btn.setStyleSheet(class_style)
         self.balloon_btn.setStyleSheet(class_style)
         
-        self.person_btn.clicked.connect(lambda: self.flight.send_class(0))
+        self.person_btn.clicked.connect(lambda: self.flight.send_class(1))
         self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
-        self.balloon_btn.clicked.connect(lambda: self.flight.send_class(4))  # بالون = 4
+        self.balloon_btn.clicked.connect(lambda: self.flight.send_class(0))  
         
         # ========== اضافه کردن همه به layout ==========
         # Operation
@@ -185,9 +185,8 @@ class ControlBar(QWidget):
         sep.setFixedSize(2, 30)
         sep.setStyleSheet("background-color: rgba(255,255,255,0.15); border-radius: 1px;")
         return sep
-        
+
     def update_from_flight(self, op=None, mode=None, spd=None, cls=None, initialized=None):
-        """بروزرسانی وضعیت دکمه‌ها بر اساس داده دریافتی"""
         
         if initialized is not None:
             self.initialized = initialized
@@ -203,22 +202,33 @@ class ControlBar(QWidget):
             
         enabled = self.initialized
         
-        # Operation
+        # وضعیت عملیات
+        is_operating = (self.current_op == 2)  # In operation
+        
+        # Operation buttons (همیشه فعال اگر initialized باشد)
         self.start_btn.setEnabled(enabled)
         self.cancel_btn.setEnabled(enabled)
         
-        # Mode
-        self.manual_btn.setEnabled(enabled)
-        self.auto_btn.setEnabled(enabled)
+        # Mode buttons (در حالت عملیات غیرفعال)
+        self.manual_btn.setEnabled(enabled and not is_operating)
+        self.auto_btn.setEnabled(enabled and not is_operating)
         
-        # Speed (فقط در حالت آماده به کار و Guided)
-        speed_allowed = enabled and (self.current_op == 1)
-        self.speed_1_btn.setEnabled(speed_allowed)
-        self.speed_3_btn.setEnabled(speed_allowed)
-        self.speed_6_btn.setEnabled(speed_allowed)
+        # Speed buttons
+        # اگر در حالت عملیات نباشد و مقدار spd با دکمه یکی نباشد → فعال
+        speed_1_enabled = enabled and not is_operating and (self.current_spd != 12)
+        speed_3_enabled = enabled and not is_operating and (self.current_spd != 19)
+        speed_6_enabled = enabled and not is_operating and (self.current_spd != 22)
         
-        # Class (فقط در حالت آماده به کار)
-        class_allowed = enabled and (self.current_op == 1)
-        self.person_btn.setEnabled(class_allowed)
-        self.car_btn.setEnabled(class_allowed)
-        self.balloon_btn.setEnabled(class_allowed)
+        self.speed_1_btn.setEnabled(speed_1_enabled)
+        self.speed_3_btn.setEnabled(speed_3_enabled)
+        self.speed_6_btn.setEnabled(speed_6_enabled)
+        
+        # Class buttons
+        class_1_enabled = enabled and not is_operating and (self.current_cls != 1)  # Person
+        class_2_enabled = enabled and not is_operating and (self.current_cls != 2)  # Car
+        class_3_enabled = enabled and not is_operating and (self.current_cls != 0)  # Balloon
+        
+        self.person_btn.setEnabled(class_1_enabled)
+        self.car_btn.setEnabled(class_2_enabled)
+        self.balloon_btn.setEnabled(class_3_enabled)
+            
