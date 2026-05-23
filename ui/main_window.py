@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         self.mouse_y = 0
         self.current_zoom=1
         self.current_steer = 0 
-        self.central_box_ratio = 0.78   
+        self.central_box_ratio = 0.76  
         self.central_box = None          
 
 
