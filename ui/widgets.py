@@ -68,11 +68,6 @@ class ControlBar(QWidget):
                 # ========== بخش Class (با آیکون) ==========
         assets_path = Path(__file__).parent.parent / "assets"
         
-        print("Assets Path:", assets_path)
-        print("people.png exists:", (assets_path / "people.png").exists())
-        print("sedan.png exists:", (assets_path / "sedan.png").exists())
-        print("balloon.png exists:", (assets_path / "balloon.png").exists())
-
         self.person_btn = QPushButton(" Person")
         self.car_btn = QPushButton(" Car")
         self.balloon_btn = QPushButton(" Balloon")
