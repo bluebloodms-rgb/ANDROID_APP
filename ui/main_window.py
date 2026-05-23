@@ -63,7 +63,9 @@ class MainWindow(QMainWindow):
         self.mouse_x = 0
         self.mouse_y = 0
         self.current_zoom=1
-        self.current_steer = 0  # اضافه کن
+        self.current_steer = 0 
+        self.central_box_ratio = 0.78   
+        self.central_box = None          
 
 
 
@@ -303,27 +305,53 @@ class MainWindow(QMainWindow):
         bytes_per_line = ch * w
 
         display_frame = rgb.copy()
+        # محاسبه موقعیت و اندازه مستطیل مرکزی (هر فریم)
+        box_w = int(w * self.central_box_ratio)
+        box_h = int(h * self.central_box_ratio)
+        box_x = (w - box_w) // 2
+        box_y = (h - box_h) // 2
+        self.central_box = (box_x, box_y, box_w, box_h)
+        # ==================== تعیین رنگ مستطیل ====================
+        if (self.app_controller.flight_interface.state.initialized):
+            box_color = (0, 255, 0)      # سبز
+        else:
+            box_color = (255, 0, 0)      # قرمز
 
-        # Draw targeting reticle at mouse position
+        # نمایش حاشیه مستطیل مرکزی با رنگ پویا
+        cv2.rectangle(display_frame,
+                     (box_x, box_y),
+                     (box_x + box_w, box_y + box_h),
+                     box_color, 1)
+        # =========================================================
+
+# =============== نمایش نشانگر فقط داخل مستطیل ===============
         if hasattr(self, 'mouse_x') and hasattr(self, 'mouse_y'):
-            reticle_size = 50                    # ← Smaller size (was 80)
-            half = reticle_size // 2
-            
-            x = int(self.mouse_x * w / self.video_label.width())
-            y = int(self.mouse_y * h / self.video_label.height())
-            
-            display_frame = cornerRect(
-                display_frame,
-                (x - half, y - half, reticle_size, reticle_size),   # Smaller reticle
-                l=18,           # Corner length
-                t=2,            # Line thickness
-                t_center=2,
-                a_c=4,
-                m_p=3,
-                colorR=(0, 255, 120),
-                colorC=(0, 255, 120)
-            )
+            # تبدیل موقعیت موس از QLabel به فریم
+            mouse_frame_x = int(self.mouse_x * w / max(self.video_label.width(), 1))
+            mouse_frame_y = int(self.mouse_y * h / max(self.video_label.height(), 1))
 
+            # چک کردن اینکه موس داخل مستطیل مرکزی هست یا نه
+            if (box_x <= mouse_frame_x <= box_x + box_w and 
+                box_y <= mouse_frame_y <= box_y + box_h):
+
+                reticle_size = 50
+                half = reticle_size // 2
+
+                x = mouse_frame_x
+                y = mouse_frame_y
+
+                display_frame = cornerRect(
+                    display_frame,
+                    (x - half, y - half, reticle_size, reticle_size),
+                    l=18,
+                    t=2,
+                    t_center=2,
+                    a_c=4,
+                    m_p=3,
+                    colorR=(0, 255, 120),
+                    colorC=(0, 255, 120)
+                )
+        # =================================================================
         # Rest of your code (QImage + overlay + scaling)
         image = QImage(display_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(image)
@@ -348,23 +376,30 @@ class MainWindow(QMainWindow):
             label_x = event.position().x()
             label_y = event.position().y()
 
-            # === AUTOMATIC FRAME SIZE DETECTION ===
+            if not hasattr(self, 'central_box') or self.central_box is None:
+                return
+
+            # تبدیل موقعیت کلیک به مختصات فریم
             if hasattr(self.camera.worker, 'last_frame_shape') and self.camera.worker.last_frame_shape:
                 frame_h, frame_w = self.camera.worker.last_frame_shape[:2]
-                print(f'{frame_h} , {frame_w} ')
             else:
-                frame_w, frame_h = 1280, 720   # fallback
+                frame_w, frame_h = 1280, 720
 
             real_x = int(label_x * frame_w / max(self.video_label.width(), 1))
             real_y = int(label_y * frame_h / max(self.video_label.height(), 1))
 
-            print(f"🖱️ Clicked → Label({label_x:.0f}, {label_y:.0f}) | "
-                  f"Frame({real_x}, {real_y})")
-            self.app_controller.flight_interface.send_target_position(real_x, real_y)
+            box_x, box_y, box_w, box_h = self.central_box
 
-            self.last_click_x = real_x
-            self.last_click_y = real_y
-
+            # فقط اگر کلیک داخل مستطیل مرکزی باشد
+            if (box_x <= real_x <= box_x + box_w and 
+                box_y <= real_y <= box_y + box_h):
+                
+                print(f"🖱️ Clicked inside central box → Frame({real_x}, {real_y})")
+                self.app_controller.flight_interface.send_target_position(real_x, real_y)
+                self.last_click_x = real_x
+                self.last_click_y = real_y
+            else:
+                print("❌ Click outside central targeting box - ignored")
 
 
 

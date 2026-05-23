@@ -88,9 +88,9 @@ class ControlBar(QWidget):
         self.auto_btn.clicked.connect(lambda: self.flight.send_mode(2))
         
         # ========== بخش Speed (3 دکمه) ==========
-        self.speed_1_btn = QPushButton("1.5 m/s")
-        self.speed_3_btn = QPushButton("3.0 m/s")
-        self.speed_6_btn = QPushButton("6.0 m/s")
+        self.speed_1_btn = QPushButton("12 m/s")
+        self.speed_3_btn = QPushButton("19 m/s")
+        self.speed_6_btn = QPushButton("22 m/s")
         
         speed_style = """
             QPushButton {
@@ -109,9 +109,9 @@ class ControlBar(QWidget):
         self.speed_3_btn.setStyleSheet(speed_style)
         self.speed_6_btn.setStyleSheet(speed_style)
         
-        self.speed_1_btn.clicked.connect(lambda: self.flight.send_speed(1.5))
-        self.speed_3_btn.clicked.connect(lambda: self.flight.send_speed(3.0))
-        self.speed_6_btn.clicked.connect(lambda: self.flight.send_speed(6.0))
+        self.speed_1_btn.clicked.connect(lambda: self.flight.send_speed(12))
+        self.speed_3_btn.clicked.connect(lambda: self.flight.send_speed(19))
+        self.speed_6_btn.clicked.connect(lambda: self.flight.send_speed(22))
         
         # ========== بخش Class (3 دکمه با آیکون بعداً) ==========
         self.person_btn = QPushButton("👤 Person")
@@ -175,7 +175,7 @@ class ControlBar(QWidget):
         # ذخیره وضعیت برای update_from_flight
         self.current_op = 1
         self.current_mode = 1
-        self.current_spd = 1.5
+        self.current_spd = 12
         self.current_cls = 0
         self.initialized = False
         
