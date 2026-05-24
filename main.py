@@ -8,7 +8,6 @@ from core.app_controller import AppController
 def main():
     app = QApplication(sys.argv)
 
-    # مسیر صحیح و مطمئن برای آیکون
     base_dir = Path(__file__).parent
     icon_path = base_dir / "assets" / "app_icon.ico"
 

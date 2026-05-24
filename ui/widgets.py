@@ -41,14 +41,19 @@ class ControlBar(QWidget):
         self.cancel_btn.clicked.connect(lambda: self.flight.send_operation(1))
 
         # ==================== Mode ====================
+
         self.manual_btn = QPushButton("MANUAL")
         self.auto_btn = QPushButton("AUTO")
 
-        self.manual_btn.setStyleSheet(self._button_style("#2196F3", "#1976D2"))
-        self.auto_btn.setStyleSheet(self._button_style("#9C27B0", "#7B1FA2"))
+        # رنگ یکسان حرفه‌ای (آبی تیره و جدی)
+        mode_style = self._button_style("#1976D2", "#1565C0")
+
+        self.manual_btn.setStyleSheet(mode_style)
+        self.auto_btn.setStyleSheet(mode_style)
 
         self.manual_btn.clicked.connect(lambda: self.flight.send_mode(1))
         self.auto_btn.clicked.connect(lambda: self.flight.send_mode(2))
+
 
         # ==================== Speed ====================
         self.speed_1_btn = QPushButton("12 m/s")
