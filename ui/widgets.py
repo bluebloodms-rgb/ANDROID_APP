@@ -185,9 +185,6 @@ class ControlBar(QWidget):
             self.current_cls = cls
         
         enabled = self.initialized
-        enabled=True
-
-
 
         start_enabled   = (self.current_op != 2) and enabled 
 
