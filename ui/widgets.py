@@ -188,8 +188,8 @@ class ControlBar(QWidget):
 
         start_enabled   = (self.current_op != 2) and enabled 
 
-        manual_enabled = (self.current_mode == 1) and enabled 
-        auto_enabled   = (self.current_mode == 2) and enabled 
+        manual_enabled = (self.current_mode != 1) and enabled 
+        auto_enabled   = (self.current_mode != 2) and enabled 
         self.manual_btn.setEnabled(manual_enabled)
         self.auto_btn.setEnabled(auto_enabled)
 
