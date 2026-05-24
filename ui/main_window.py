@@ -248,23 +248,27 @@ class MainWindow(QMainWindow):
             cls=state.cls,
             initialized=state.initialized
         )
-            # بروزرسانی اسلایدر زوم اگر مقدار zoom از flight controller آمد
-        if hasattr(self, 'zoom_slider') and state.zoom is not None:
-            self.zoom_slider.set_zoom(state.zoom)
-            self.current_zoom = state.zoom
-            if hasattr(self, 'zoom_value_label'):
-                self.zoom_value_label.setText(f"{state.zoom:.1f}X")
-                # ========== اضافه کن: بروزرسانی اسلایدر زاویه از state.spd ==========
+        if state.st == 2:
+            # =========================================================
+            # بروزرسانی مقادیر اسلایدرها فقط در حالت TRACK (st == 2)
+            # در این حالت، پرنده در حال تعقیب هدف است و مقادیر زوم و زاویه
+            # از سمت Flight Controller دریافت و روی اسلایدرها نمایش داده می‌شود
+            # =========================================================
+            if hasattr(self, 'zoom_slider') and state.zoom is not None:
+                self.zoom_slider.set_zoom(state.zoom)
+                self.current_zoom = state.zoom
+                if hasattr(self, 'zoom_value_label'):
+                    self.zoom_value_label.setText(f"{state.zoom:.1f}X")
 
-                # ========== بروزرسانی اسلایدر زاویه (Steer / Pitch) ==========
-        if hasattr(self, 'steer_slider') and state.pitch is not None:
-            # pitch در محدوده 0 تا 90 درجه است
-            self.steer_slider.set_steer(state.pitch)
-            self.current_steer = state.pitch
-            
-            if hasattr(self, 'steer_value_label'):
-                self.steer_value_label.setText(f"{state.pitch:.0f}°")
-        # ===================================================================
+                    # ========== بروزرسانی اسلایدر زاویه (Steer / Pitch) ==========
+            if hasattr(self, 'steer_slider') and state.pitch is not None:
+                # pitch در محدوده 0 تا 90 درجه است
+                self.steer_slider.set_steer(state.pitch)
+                self.current_steer = state.pitch
+                
+                if hasattr(self, 'steer_value_label'):
+                    self.steer_value_label.setText(f"{state.pitch:.0f}°")
+            # ===================================================================
 
         
 
