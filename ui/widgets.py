@@ -13,7 +13,7 @@ class ControlBar(QWidget):
         # وضعیت‌های داخلی
         self.current_op = 1
         self.current_mode = 2
-        self.current_spd = 12
+        self.current_spd = 19
         self.current_cls = 0
         self.initialized = False
 
@@ -183,9 +183,9 @@ class ControlBar(QWidget):
             self.current_spd = spd
         if cls is not None:
             self.current_cls = cls
-
+        
         enabled = self.initialized
-
+        enabled=True
 
 
 
@@ -200,8 +200,9 @@ class ControlBar(QWidget):
 
         self.start_btn.setEnabled(start_enabled)
         self.cancel_btn.setEnabled(enabled)
+        print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
 
-
+        print(self.current_spd)
 
         # Speed - منطق دقیقاً مثل کد اصلی تو
         self.speed_1_btn.setEnabled(enabled and (self.current_spd != 12))

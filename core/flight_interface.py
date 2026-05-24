@@ -18,7 +18,7 @@ class FlightState:
         self.st = 1      # 1 = First, 2 = Track
         self.md = 1      # 1 = Manual, 2 = Automatic
         self.cls = 0     # 0 = Person, 2 = Car
-        self.spd = 1.5   # m/s
+        self.spd = 19  # m/s
         self.pitch = None     # ← اضافه کن
         self.zoom = None # ← NEW: Add this line
         self.mouse_x = None
