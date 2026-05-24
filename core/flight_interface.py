@@ -404,9 +404,6 @@ class FlightInterface(QObject):
 
     def send_start(self):
         print("start")
-        if self.state.mode != "GUIDED":
-            print("Cannot start: not in GUIDED mode")
-            return
         self.send_statustext("START:TRUE,Notcare:TRUE")
 
     def send_cancel(self):
