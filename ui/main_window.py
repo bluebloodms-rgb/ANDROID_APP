@@ -355,24 +355,24 @@ class MainWindow(QMainWindow):
                 self._update_overlay_position()
                 self._update_zoom_position()  # اضافه کن
                 self._update_steer_position()
-    
 
     def on_video_mouse_press(self, event):
         if event.button() == Qt.LeftButton:
             label_x = event.position().x()
             label_y = event.position().y()
 
-            # تبدیل موقعیت کلیک به مختصات فریم
-            if hasattr(self.camera.worker, 'last_frame_shape') and self.camera.worker.last_frame_shape:
-                frame_h, frame_w = self.camera.worker.last_frame_shape[:2]
-            else:
-                frame_w, frame_h = 1280, 720
+            # ابعاد واقعی دوربین پرنده (720p)
+            frame_w = 1280
+            frame_h = 720
 
             real_x = int(label_x * frame_w / max(self.video_label.width(), 1))
             real_y = int(label_y * frame_h / max(self.video_label.height(), 1))
 
-            print(f"🖱️ Clicked → Frame({real_x}, {real_y})")
+            print(f"🖱️ Clicked → Label({label_x:.0f}, {label_y:.0f}) → Frame({real_x}, {real_y})")
             self.app_controller.flight_interface.send_target_position(real_x, real_y)
+        
+
+
 
     def on_video_mouse_move(self, event):
         """Track mouse movement over video"""
