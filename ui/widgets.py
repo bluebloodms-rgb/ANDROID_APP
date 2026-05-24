@@ -12,7 +12,7 @@ class ControlBar(QWidget):
 
         # وضعیت‌های داخلی
         self.current_op = 1
-        self.current_mode = 1
+        self.current_mode = 2
         self.current_spd = 12
         self.current_cls = 0
         self.initialized = False
@@ -185,22 +185,30 @@ class ControlBar(QWidget):
             self.current_cls = cls
 
         enabled = self.initialized
-        is_operating = (self.current_op == 2)
 
-        # Operation
-        self.start_btn.setEnabled(enabled)
+
+
+
+        start_enabled   = (self.current_op != 2) and enabled 
+
+        manual_enabled = (self.current_mode == 1) and enabled 
+        auto_enabled   = (self.current_mode == 2) and enabled 
+        self.manual_btn.setEnabled(manual_enabled)
+        self.auto_btn.setEnabled(auto_enabled)
+
+        
+
+        self.start_btn.setEnabled(start_enabled)
         self.cancel_btn.setEnabled(enabled)
 
-        # Mode
-        self.manual_btn.setEnabled(enabled and not is_operating)
-        self.auto_btn.setEnabled(enabled and not is_operating)
+
 
         # Speed - منطق دقیقاً مثل کد اصلی تو
-        self.speed_1_btn.setEnabled(enabled and not is_operating and (self.current_spd != 12))
-        self.speed_3_btn.setEnabled(enabled and not is_operating and (self.current_spd != 19))
-        self.speed_6_btn.setEnabled(enabled and not is_operating and (self.current_spd != 22))
+        self.speed_1_btn.setEnabled(enabled and (self.current_spd != 12))
+        self.speed_3_btn.setEnabled(enabled and (self.current_spd != 19))
+        self.speed_6_btn.setEnabled(enabled and (self.current_spd != 22))
 
         # Class - منطق دقیقاً مثل کد اصلی تو
-        self.person_btn.setEnabled(enabled and not is_operating and (self.current_cls != 1))
-        self.car_btn.setEnabled(enabled and not is_operating and (self.current_cls != 2))
-        self.balloon_btn.setEnabled(enabled and not is_operating and (self.current_cls != 0))
+        self.person_btn.setEnabled(enabled  and (self.current_cls != 1))
+        self.car_btn.setEnabled(enabled  and (self.current_cls != 2))
+        self.balloon_btn.setEnabled(enabled  and (self.current_cls != 0))
