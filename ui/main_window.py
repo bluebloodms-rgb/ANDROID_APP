@@ -11,6 +11,8 @@ from utils.frame_overlay import cornerRect
 from ui.zoom_slider import CustomZoomSlider
 from ui.steer_slider import CustomSteerSlider
 from ui.battery_widget import BatteryWidget
+from ui.satellite_widget import SatelliteWidget
+
 
 class ConnectionIndicator(QWidget):
     def __init__(self, parent=None):
@@ -116,6 +118,9 @@ class MainWindow(QMainWindow):
         # Battery Widget
         self.battery_widget = BatteryWidget(22.0, self.video_label)
         self.battery_widget.setVisible(True)
+        # Satellite Widget
+        self.satellite_widget = SatelliteWidget(self.video_label)
+        self.satellite_widget.setVisible(True)
 
 
         
@@ -255,6 +260,11 @@ class MainWindow(QMainWindow):
         )
         if hasattr(self, 'battery_widget') and state.battery is not None:
             self.battery_widget.setVoltage(state.battery)
+
+        if hasattr(self, 'satellite_widget'):
+            self.satellite_widget.setSatellites(state.satellites)
+
+
         if state.st == 2:
             # =========================================================
             # بروزرسانی مقادیر اسلایدرها فقط در حالت TRACK (st == 2)
@@ -397,7 +407,10 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(10, self._update_steer_position)
 
         QTimer.singleShot(10, self._update_battery_position)
+        QTimer.singleShot(10, self._update_satellite_position)   # ← اضافه کن
+
         
+
 
     # ====================================
     
@@ -465,6 +478,17 @@ class MainWindow(QMainWindow):
         
         self.battery_widget.move(x, y)
         self.battery_widget.raise_()
+    def _update_satellite_position(self):
+        if not hasattr(self, 'satellite_widget') or not hasattr(self, 'video_label'):
+            return
+        
+        # فاصله بیشتر از باتری
+        x = 18 + 75          # 75 پیکسل فاصله از باتری
+        y = 15               # کمی پایین‌تر از باتری برای تراز بهتر
+        
+        self.satellite_widget.move(x, y)
+        self.satellite_widget.raise_()
+
 
 
 
@@ -517,6 +541,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(50, self._update_zoom_position)  # اضافه کن
         QTimer.singleShot(50, self._update_steer_position)
         QTimer.singleShot(10, self._update_battery_position)
+        QTimer.singleShot(10, self._update_satellite_position)   # ← اضافه کن
     def closeEvent(self, event):
         self.camera.stop_camera()
         super().closeEvent(event)
