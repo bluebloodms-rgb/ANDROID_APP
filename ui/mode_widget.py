@@ -3,20 +3,24 @@ from PySide6.QtGui import QPainter, QPen, QColor, QFont, QPixmap
 from PySide6.QtCore import Qt, QRectF
 from pathlib import Path
 
-class HdopWidget(QWidget):
+class ModeWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(85, 88)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.hdop = 0.0
+        self.mode = "---"
         
         # بارگذاری آیکون
         assets_path = Path(__file__).parent.parent / "assets"
-        self.icon_path = assets_path / "placeholder.png"
+        self.icon_path = assets_path / "plane-mode.png"
         self.icon = QPixmap(str(self.icon_path)) if self.icon_path.exists() else None
 
-    def setHdop(self, hdop: float):
-        self.hdop = hdop if hdop is not None else 0.0
+    def setMode(self, mode: str):
+        if mode is None:
+            self.mode = "---"
+        else:
+            # حداکثر 4 حرف
+            self.mode = mode[:4] if len(mode) > 4 else mode
         self.update()
 
     def paintEvent(self, event):
@@ -37,20 +41,20 @@ class HdopWidget(QWidget):
                 Qt.SmoothTransformation)
             )
 
-        # نمایش مقدار HDOP (با یک رقم اعشار)
+        # نمایش مقدار Mode
         painter.setPen(QColor(50, 50, 50))
-        painter.setFont(QFont("Arial", 16, QFont.Bold))
+        painter.setFont(QFont("Arial", 14, QFont.Bold))  # فونت کمی کوچکتر برای 4 حرف
         painter.drawText(
             QRectF(0, 64, w, 28),
             Qt.AlignCenter,
-            f"{self.hdop:.1f}"
+            self.mode
         )
 
-        # برچسب HDOP
+        # برچسب MODE
         painter.setPen(QColor(50, 50, 50))
         painter.setFont(QFont("Arial", 9, QFont.Bold))
         painter.drawText(
             QRectF(0, 3, w, 18),
             Qt.AlignCenter,
-            "HDOP"
+            "MODE"
         )

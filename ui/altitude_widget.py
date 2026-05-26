@@ -38,7 +38,7 @@ class AltitudeWidget(QWidget):
             )
 
         # نمایش مقدار ارتفاع (با یک رقم اعشار)
-        painter.setPen(QColor(80, 200, 255))
+        painter.setPen(QColor(50, 50, 50))
         painter.setFont(QFont("Arial", 16, QFont.Bold))
         painter.drawText(
             QRectF(0, 64, w, 28),
@@ -47,7 +47,7 @@ class AltitudeWidget(QWidget):
         )
 
         # برچسب ALT
-        painter.setPen(QColor(150, 150, 150))
+        painter.setPen(QColor(50, 50, 50))
         painter.setFont(QFont("Arial", 9, QFont.Bold))
         painter.drawText(
             QRectF(0, 3, w, 18),

@@ -14,6 +14,7 @@ from ui.battery_widget import BatteryWidget
 from ui.satellite_widget import SatelliteWidget
 from ui.altitude_widget import AltitudeWidget
 from ui.hdop_widget import HdopWidget
+from ui.mode_widget import ModeWidget
 
 
 class ConnectionIndicator(QWidget):
@@ -132,10 +133,13 @@ class MainWindow(QMainWindow):
 
         self.hdop_widget = HdopWidget()
 
+        self.mode_widget = ModeWidget()
+
         container_layout.addWidget(self.battery_widget)
         container_layout.addWidget(self.satellite_widget)
         container_layout.addWidget(self.altitude_widget)
-        container_layout.addWidget(self.hdop_widget) 
+        container_layout.addWidget(self.hdop_widget)
+        container_layout.addWidget(self.mode_widget)  
 
         
 
@@ -286,7 +290,9 @@ class MainWindow(QMainWindow):
              self.altitude_widget.setAltitude(state.altitude)
         if hasattr(self, 'hdop_widget'):
             self.hdop_widget.setHdop(state.hdop)
-                
+        if hasattr(self, 'mode_widget'):
+            self.mode_widget.setMode(state.mode)
+                        
 
 
 
