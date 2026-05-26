@@ -13,6 +13,7 @@ from ui.steer_slider import CustomSteerSlider
 from ui.battery_widget import BatteryWidget
 from ui.satellite_widget import SatelliteWidget
 from ui.altitude_widget import AltitudeWidget
+from ui.hdop_widget import HdopWidget
 
 
 class ConnectionIndicator(QWidget):
@@ -129,9 +130,13 @@ class MainWindow(QMainWindow):
 
         self.altitude_widget = AltitudeWidget()
 
+        self.hdop_widget = HdopWidget()
+
         container_layout.addWidget(self.battery_widget)
         container_layout.addWidget(self.satellite_widget)
-        container_layout.addWidget(self.altitude_widget)  
+        container_layout.addWidget(self.altitude_widget)
+        container_layout.addWidget(self.hdop_widget) 
+
         
 
 
@@ -279,7 +284,9 @@ class MainWindow(QMainWindow):
             self.satellite_widget.setSatellites(state.satellites)
         if hasattr(self, 'altitude_widget'):
              self.altitude_widget.setAltitude(state.altitude)
-        
+        if hasattr(self, 'hdop_widget'):
+            self.hdop_widget.setHdop(state.hdop)
+                
 
 
 
