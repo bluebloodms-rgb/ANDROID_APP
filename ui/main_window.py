@@ -115,12 +115,20 @@ class MainWindow(QMainWindow):
         self.steer_value_label.setText("0°")
         self.steer_value_label.resize(50, 28)
 
-        # Battery Widget
-        self.battery_widget = BatteryWidget(22.0, self.video_label)
-        self.battery_widget.setVisible(True)
-        # Satellite Widget
-        self.satellite_widget = SatelliteWidget(self.video_label)
-        self.satellite_widget.setVisible(True)
+                # Container برای باتری و ماهواره
+        self.top_left_container = QWidget(self.video_label)
+        self.top_left_container.setStyleSheet("background-color: transparent;")
+
+        container_layout = QHBoxLayout(self.top_left_container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(10)
+
+        self.battery_widget = BatteryWidget(22.0)
+        self.satellite_widget = SatelliteWidget()
+
+        container_layout.addWidget(self.battery_widget)
+        container_layout.addWidget(self.satellite_widget)
+
 
 
         
@@ -265,6 +273,7 @@ class MainWindow(QMainWindow):
             self.satellite_widget.setSatellites(state.satellites)
 
 
+
         if state.st == 2:
             # =========================================================
             # بروزرسانی مقادیر اسلایدرها فقط در حالت TRACK (st == 2)
@@ -405,14 +414,8 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(10, self._update_zoom_position)  # 
         if hasattr(self, 'steer_overlay') and hasattr(self, 'video_label'):
                 QTimer.singleShot(10, self._update_steer_position)
+        QTimer.singleShot(10, self._update_top_left_position)
 
-        QTimer.singleShot(10, self._update_battery_position)
-        QTimer.singleShot(10, self._update_satellite_position)   # ← اضافه کن
-
-        
-
-
-    # ====================================
     
         super().resizeEvent(event)
     def _update_zoom_position(self):
@@ -469,29 +472,6 @@ class MainWindow(QMainWindow):
                 self.steer_value_label.raise_()
 
 
-    def _update_battery_position(self):
-        if not hasattr(self, 'battery_widget') or not hasattr(self, 'video_label'):
-            return
-        
-        x = 18          # خیلی نزدیک به لبه چپ
-        y = 15          # خیلی بالا
-        
-        self.battery_widget.move(x, y)
-        self.battery_widget.raise_()
-    def _update_satellite_position(self):
-        if not hasattr(self, 'satellite_widget') or not hasattr(self, 'video_label'):
-            return
-        
-        # فاصله بیشتر از باتری
-        x = 18 + 75          # 75 پیکسل فاصله از باتری
-        y = 15               # کمی پایین‌تر از باتری برای تراز بهتر
-        
-        self.satellite_widget.move(x, y)
-        self.satellite_widget.raise_()
-
-
-
-
     def update_zoom_display(self, value):
         print(f"Zoom: {value:.1f}x")
         if hasattr(self, 'zoom_value_label'):
@@ -530,6 +510,13 @@ class MainWindow(QMainWindow):
         self.controls_overlay.setGeometry(x, y, overlay_width, 90)
         self.controls_overlay.raise_()
 
+    def _update_top_left_position(self):
+        if hasattr(self, 'top_left_container') and hasattr(self, 'video_label'):
+            x = 30
+            y = 15
+            self.top_left_container.move(x, y)
+            self.top_left_container.raise_()
+
 
 
 
@@ -540,8 +527,8 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(50, self._update_overlay_position)
         QTimer.singleShot(50, self._update_zoom_position)  # اضافه کن
         QTimer.singleShot(50, self._update_steer_position)
-        QTimer.singleShot(10, self._update_battery_position)
-        QTimer.singleShot(10, self._update_satellite_position)   # ← اضافه کن
+        QTimer.singleShot(10, self._update_top_left_position)
+     
     def closeEvent(self, event):
         self.camera.stop_camera()
         super().closeEvent(event)
