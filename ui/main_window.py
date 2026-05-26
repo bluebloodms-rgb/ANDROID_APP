@@ -12,6 +12,7 @@ from ui.zoom_slider import CustomZoomSlider
 from ui.steer_slider import CustomSteerSlider
 from ui.battery_widget import BatteryWidget
 from ui.satellite_widget import SatelliteWidget
+from ui.altitude_widget import AltitudeWidget
 
 
 class ConnectionIndicator(QWidget):
@@ -126,8 +127,13 @@ class MainWindow(QMainWindow):
         self.battery_widget = BatteryWidget(22.0)
         self.satellite_widget = SatelliteWidget()
 
+        self.altitude_widget = AltitudeWidget()
+
         container_layout.addWidget(self.battery_widget)
         container_layout.addWidget(self.satellite_widget)
+        container_layout.addWidget(self.altitude_widget)  
+        
+
 
 
 
@@ -271,6 +277,9 @@ class MainWindow(QMainWindow):
 
         if hasattr(self, 'satellite_widget'):
             self.satellite_widget.setSatellites(state.satellites)
+        if hasattr(self, 'altitude_widget'):
+             self.altitude_widget.setAltitude(state.altitude)
+        
 
 
 
