@@ -7,8 +7,9 @@ class CustomZoomSlider(QWidget):
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
         self.main_window = main_window
-        self.setFixedSize(60, 420)
+        self.setFixedSize(80, 420)
         self.marker_position = 370
+        self.set_zoom(1.0)
         self.dragging = False
         self.zoom_value = 1  
         self.setMouseTracking(True)
@@ -47,34 +48,38 @@ class CustomZoomSlider(QWidget):
         painter.setFont(font)
         painter.drawText(8, track_rect.top() + 8, "MAX")
         painter.drawText(8, track_rect.bottom() - 2, "MIN")
-        
 
-        
-        # Draw the movable marker
+
+                # Draw the movable marker
         marker_x = 15
         marker_width = 28
         marker_height = 22
         
-        # Marker with transparency
         painter.setPen(QPen(QColor(255, 255, 255, 180), 2))
         painter.setBrush(QColor(255, 255, 255, 220))
-        painter.drawRoundedRect(marker_x, self.marker_position - 11, 
-                            marker_width, marker_height, 4, 4)
-        
+        painter.drawRoundedRect(marker_x, self.marker_position - 11,
+                                marker_width, marker_height, 4, 4)
+
         # Draw marker handle lines
         painter.setPen(QPen(QColor(50, 50, 50), 2))
-        painter.drawLine(marker_x + 8, self.marker_position - 4, 
-                        marker_x + 20, self.marker_position - 4)
-        painter.drawLine(marker_x + 8, self.marker_position + 1, 
-                        marker_x + 20, self.marker_position + 1)
-        painter.drawLine(marker_x + 8, self.marker_position + 6, 
-                        marker_x + 20, self.marker_position + 6)
-        
-        # Draw zoom value
+        painter.drawLine(marker_x + 8, self.marker_position - 4, marker_x + 20, self.marker_position - 4)
+        painter.drawLine(marker_x + 8, self.marker_position + 1, marker_x + 20, self.marker_position + 1)
+        painter.drawLine(marker_x + 8, self.marker_position + 6, marker_x + 20, self.marker_position + 6)
+
+        # ====================== Draw zoom value ======================
         painter.setPen(QPen(QColor(255, 255, 255), 1))
-        font = QFont("Arial", 9, QFont.Bold)
+        font = QFont("Consolas", 9, QFont.Bold)   # فونت بهتر برای اعداد
         painter.setFont(font)
-        painter.drawText(marker_x + 32, self.marker_position + 4, f"{self.zoom_value:.1f}X")
+        
+        text = f"{self.zoom_value:.1f}X"
+        text_x = marker_x + marker_width + 10     # فاصله بیشتر از نشانگر
+        text_y = self.marker_position + 6
+        
+        painter.drawText(text_x, text_y, text)
+        
+
+        
+
         
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
