@@ -9,6 +9,7 @@ class CustomSteerSlider(QWidget):
         self.main_window = main_window
         self.setFixedSize(60, 420)
         self.marker_position = 370  # موقعیت پایین برای 0 درجه
+        self.set_steer(0)
         self.dragging = False
         self.steer_value = 0  # 0 تا 90 درجه
         self.setMouseTracking(True)
