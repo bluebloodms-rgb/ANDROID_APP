@@ -7,9 +7,10 @@ import serial.tools.list_ports
 from ui.widgets import ControlBar
 from core.camera_interface import CameraInterface
 from core.flight_interface import FlightState
-from utils.frame_overlay import FrameOverlay, cornerRect
+from utils.frame_overlay import cornerRect
 from ui.zoom_slider import CustomZoomSlider
 from ui.steer_slider import CustomSteerSlider
+from ui.battery_widget import BatteryWidget
 
 class ConnectionIndicator(QWidget):
     def __init__(self, parent=None):
@@ -111,6 +112,10 @@ class MainWindow(QMainWindow):
         self.steer_value_label.setAlignment(Qt.AlignCenter)
         self.steer_value_label.setText("0°")
         self.steer_value_label.resize(50, 28)
+
+        # Battery Widget
+        self.battery_widget = BatteryWidget(22.0, self.video_label)
+        self.battery_widget.setVisible(True)
 
 
         
@@ -248,6 +253,8 @@ class MainWindow(QMainWindow):
             cls=state.cls,
             initialized=state.initialized
         )
+        if hasattr(self, 'battery_widget') and state.battery is not None:
+            self.battery_widget.setVoltage(state.battery)
         if state.st == 2:
             # =========================================================
             # بروزرسانی مقادیر اسلایدرها فقط در حالت TRACK (st == 2)
@@ -342,9 +349,6 @@ class MainWindow(QMainWindow):
         image = QImage(display_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(image)
 
-        overlay = FrameOverlay(self.app_controller.flight_interface.state)
-        pixmap = overlay.draw(pixmap)
-
         scaled_pixmap = pixmap.scaled(
             self.video_label.size(),
             Qt.IgnoreAspectRatio,
@@ -391,6 +395,8 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(10, self._update_zoom_position)  # 
         if hasattr(self, 'steer_overlay') and hasattr(self, 'video_label'):
                 QTimer.singleShot(10, self._update_steer_position)
+
+        QTimer.singleShot(10, self._update_battery_position)
         
 
     # ====================================
@@ -449,6 +455,19 @@ class MainWindow(QMainWindow):
                 self.steer_value_label.setGeometry(label_x, label_y, 50, 28)
                 self.steer_value_label.raise_()
 
+
+    def _update_battery_position(self):
+        if not hasattr(self, 'battery_widget') or not hasattr(self, 'video_label'):
+            return
+        
+        x = 18          # خیلی نزدیک به لبه چپ
+        y = 15          # خیلی بالا
+        
+        self.battery_widget.move(x, y)
+        self.battery_widget.raise_()
+
+
+
     def update_zoom_display(self, value):
         print(f"Zoom: {value:.1f}x")
         if hasattr(self, 'zoom_value_label'):
@@ -497,6 +516,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(50, self._update_overlay_position)
         QTimer.singleShot(50, self._update_zoom_position)  # اضافه کن
         QTimer.singleShot(50, self._update_steer_position)
+        QTimer.singleShot(10, self._update_battery_position)
     def closeEvent(self, event):
         self.camera.stop_camera()
         super().closeEvent(event)
