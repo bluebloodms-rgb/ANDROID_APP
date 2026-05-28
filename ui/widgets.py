@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout,QSizePolicy
 from PySide6.QtCore import Qt, QSize         
 from PySide6.QtGui import QIcon             
 from pathlib import Path                     
@@ -31,8 +31,8 @@ class ControlBar(QWidget):
         layout.setSpacing(15)
 
         # ==================== Operation ====================
-        self.start_btn = QPushButton("START")
-        self.cancel_btn = QPushButton("CANCEL")
+        self.start_btn = QPushButton("start")
+        self.cancel_btn = QPushButton("cancel")
 
         self.start_btn.setStyleSheet(self._button_style("#4CAF50", "#388E3C"))
         self.cancel_btn.setStyleSheet(self._button_style("#f44336", "#d32f2f"))
@@ -42,8 +42,8 @@ class ControlBar(QWidget):
 
         # ==================== Mode ====================
 
-        self.manual_btn = QPushButton("MANUAL")
-        self.auto_btn = QPushButton("AUTO")
+        self.manual_btn = QPushButton("manual")
+        self.auto_btn = QPushButton("auto")
 
         # رنگ یکسان حرفه‌ای (آبی تیره و جدی)
         mode_style = self._button_style("#1976D2", "#1565C0")
@@ -70,24 +70,13 @@ class ControlBar(QWidget):
         self.speed_6_btn.clicked.connect(lambda: self.flight.send_speed(22))
 
 
-                # ========== بخش Class (با آیکون) ==========
+        # ========== بخش Class (فقط آیکون، بدون متن) ==========
         assets_path = Path(__file__).parent.parent / "assets"
-        
-        self.person_btn = QPushButton(" Prson")
-        self.car_btn = QPushButton(" Car")
-        self.balloon_btn = QPushButton(" Ballon")
-        # ========== UAV (Drone) Class ==========
-        self.uav_btn = QPushButton(" UAV")
-        
-        if (assets_path / "drone.png").exists():
-            self.uav_btn.setIcon(QIcon(str(assets_path / "drone.png")))
-            print("✓ Drone icon loaded")
-        else:
-            print("✗ drone.png NOT FOUND")
 
-
-        
-        
+        self.person_btn = QPushButton()
+        self.car_btn = QPushButton()
+        self.balloon_btn = QPushButton()
+        self.uav_btn = QPushButton()
 
         # بارگذاری آیکون‌ها
         if (assets_path / "people.png").exists():
@@ -108,25 +97,36 @@ class ControlBar(QWidget):
         else:
             print("✗ balloon.png NOT FOUND")
 
-        icon_size = QSize(25, 25)
+        if (assets_path / "drone.png").exists():
+            self.uav_btn.setIcon(QIcon(str(assets_path / "drone.png")))
+            print("✓ Drone icon loaded")
+        else:
+            print("✗ drone.png NOT FOUND")
+
+        icon_size = QSize(32, 32)
         self.person_btn.setIconSize(icon_size)
         self.car_btn.setIconSize(icon_size)
         self.balloon_btn.setIconSize(icon_size)
         self.uav_btn.setIconSize(icon_size)
 
-        
-        
+        # ========== تنظیم سایز یکسان برای دکمه‌های کلاس ==========
+        button_size = QSize(50, 40)
+        self.person_btn.setFixedSize(button_size)
+        self.car_btn.setFixedSize(button_size)
+        self.balloon_btn.setFixedSize(button_size)
+        self.uav_btn.setFixedSize(button_size)
+        # ===================================================
 
+        # استایل فقط آیکون (بدون متن)
         class_style = """
             QPushButton {
                 background-color: #00BCD4;
                 color: white;
                 border: none;
-                padding: 8px 16px 8px 6px;
+                padding: 8px;
                 border-radius: 8px;
                 font-weight: bold;
                 font-size: 12px;
-                text-align: left;
             }
             QPushButton:hover { background-color: #0097A7; }
             QPushButton:disabled { background-color: #777; }
@@ -135,12 +135,11 @@ class ControlBar(QWidget):
         self.car_btn.setStyleSheet(class_style)
         self.balloon_btn.setStyleSheet(class_style)
         self.uav_btn.setStyleSheet(class_style)
-        
+
         self.person_btn.clicked.connect(lambda: self.flight.send_class(1))
         self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
         self.balloon_btn.clicked.connect(lambda: self.flight.send_class(0))
         self.uav_btn.clicked.connect(lambda: self.flight.send_class(3))
-
 
 
 
@@ -168,28 +167,33 @@ class ControlBar(QWidget):
         layout.addWidget(self.balloon_btn)
      
         
-        layout.addStretch(1)
+                # بعد از layout.addWidget همه دکمه‌ها، اضافه کن:
+        layout.setStretch(0, 1)  # stretch قبل از دکمه‌ها
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if item.widget() and isinstance(item.widget(), QPushButton):
+                item.widget().setMinimumWidth(60)  # حداقل عرض هر دکمه
+                item.widget().setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        layout.setStretch(layout.count() - 1, 1)  # stretch بعد از دکمه‌ها
 
     def _button_style(self, base_color, hover_color):
-        """استایل مشترک دکمه‌ها"""
         return f"""
             QPushButton {{
                 background-color: {base_color};
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 8px;
+                padding: 8px 12px;
+                border-radius: 6px;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 11px;
             }}
             QPushButton:hover {{ background-color: {hover_color}; }}
             QPushButton:disabled {{ background-color: #777; }}
         """
-
     def _make_separator(self):
-        """جداکننده عمودی"""
         sep = QWidget()
         sep.setFixedSize(2, 30)
+        sep.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sep.setStyleSheet("background-color: rgba(255,255,255,0.15); border-radius: 1px;")
         return sep
 

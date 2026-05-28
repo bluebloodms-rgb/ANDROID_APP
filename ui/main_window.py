@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
                 background-color: #3d3d3d;
             }
         """)
-        self.resize(1280, 720)   # عرض 1280 (تقریباً Full HD)، ارتفاع 720
+        self.resize(960, 650)
 
         self.camera = CameraInterface()
         self.camera.frame_ready.connect(self._update_frame)
@@ -429,17 +429,21 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):
         """تنظیم مجدد موقعیت overlay هنگام تغییر سایز پنجره"""
+        
+        # تاخیر برای گرفتن ارتفاع جدید بعد از resize
+        QTimer.singleShot(10, self._update_controls_visibility)
+        
         if hasattr(self, 'controls_overlay') and hasattr(self, 'video_label'):
-            # تاخیر کوچک برای اطمینان از اعمال اندازه‌های جدید
             QTimer.singleShot(10, self._update_overlay_position)
 
         if hasattr(self, 'zoom_overlay') and hasattr(self, 'video_label'):
-            QTimer.singleShot(10, self._update_zoom_position)  # 
+            QTimer.singleShot(10, self._update_zoom_position)
+            
         if hasattr(self, 'steer_overlay') and hasattr(self, 'video_label'):
-                QTimer.singleShot(10, self._update_steer_position)
+            QTimer.singleShot(10, self._update_steer_position)
+            
         QTimer.singleShot(10, self._update_top_left_position)
 
-    
         super().resizeEvent(event)
     def _update_zoom_position(self):
         """به‌روزرسانی موقعیت اسلایدر زوم (سمت راست، وسط عمودی)"""
@@ -507,31 +511,31 @@ class MainWindow(QMainWindow):
             self.steer_value_label.setText(f"{value:.0f}°")
         self.app_controller.flight_interface.send_pitch(value)
 
-        
     def _update_overlay_position(self):
-        """به‌روزرسانی موقعیت نوار کنترل"""
         if not hasattr(self, 'controls_overlay') or not hasattr(self, 'video_label'):
             return
         
-        # پهنای ثابت برای نوار
-        overlay_width = 1100
         label_width = self.video_label.width()
         label_height = self.video_label.height()
         
-        # اگر هنوز اندازه معتبر نداره، صبر کن
         if label_width < 100 or label_height < 100:
             return
         
-        # محاسبه موقعیت: وسط افقی، پایین عمودی
-        x = (label_width - overlay_width) // 2
-        y = label_height - 100
+        # عرض نوار = 85% عرض video_label (حداکثر 1000، حداقل 500)
+        overlay_width = min(int(label_width * 0.85), 1000)
+        overlay_width = max(overlay_width, 500)  # حداقل 500
         
-        # اطمینان از اینکه موقعیت منفی نباشد
+        x = (label_width - overlay_width) // 2
+        y = label_height - 90
+        
         x = max(0, x)
         y = max(0, y)
         
-        self.controls_overlay.setGeometry(x, y, overlay_width, 90)
+        self.controls_overlay.setGeometry(x, y, overlay_width, 85)
         self.controls_overlay.raise_()
+
+        
+
 
     def _update_top_left_position(self):
         if hasattr(self, 'top_left_container') and hasattr(self, 'video_label'):
@@ -555,10 +559,30 @@ class MainWindow(QMainWindow):
     def showEvent(self, event):
         """وقتی پنجره نمایش داده می‌شود"""
         super().showEvent(event)
+        
+        # تاخیر برای گرفتن ارتفاع واقعی بعد از render کامل
+        QTimer.singleShot(100, self._update_controls_visibility)
+        
         QTimer.singleShot(50, self._update_overlay_position)
-        QTimer.singleShot(50, self._update_zoom_position)  # اضافه کن
+        QTimer.singleShot(50, self._update_zoom_position)
         QTimer.singleShot(50, self._update_steer_position)
         QTimer.singleShot(10, self._update_top_left_position)
+
+    def _update_controls_visibility(self):
+        """بروزرسانی visibility اسلایدرها بر اساس ارتفاع واقعی"""
+        window_height = self.height()
+        print(f"Real window height: {window_height}")
+        
+        if window_height < 580:
+            if hasattr(self, 'zoom_overlay'):
+                self.zoom_overlay.hide()
+            if hasattr(self, 'steer_overlay'):
+                self.steer_overlay.hide()
+        else:
+            if hasattr(self, 'zoom_overlay'):
+                self.zoom_overlay.show()
+            if hasattr(self, 'steer_overlay'):
+                self.steer_overlay.show()
      
     def closeEvent(self, event):
         self.camera.stop_camera()
