@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
                 background-color: #3d3d3d;
             }
         """)
-        self.resize(1100, 700)
+        self.resize(1280, 720)   # عرض 1280 (تقریباً Full HD)، ارتفاع 720
 
         self.camera = CameraInterface()
         self.camera.frame_ready.connect(self._update_frame)
@@ -534,11 +534,19 @@ class MainWindow(QMainWindow):
 
     def _update_top_left_position(self):
         if hasattr(self, 'top_left_container') and hasattr(self, 'video_label'):
-            x = 30
+            # محاسبه عرض کل container
+            container_width = self.top_left_container.sizeHint().width()
+            if container_width <= 0:
+                container_width = 85 * 5 + 40  # تقریباً 5 ویجت × 85 + فاصله‌ها
+            
+            label_width = self.video_label.width()
+            
+            # وسط چین: (عرض video_label - عرض container) / 2
+            x = (label_width - container_width) // 2
             y = 15
+            
             self.top_left_container.move(x, y)
             self.top_left_container.raise_()
-
 
 
 

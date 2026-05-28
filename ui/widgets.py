@@ -73,9 +73,21 @@ class ControlBar(QWidget):
                 # ========== بخش Class (با آیکون) ==========
         assets_path = Path(__file__).parent.parent / "assets"
         
-        self.person_btn = QPushButton(" Person")
+        self.person_btn = QPushButton(" Prson")
         self.car_btn = QPushButton(" Car")
-        self.balloon_btn = QPushButton(" Balloon")
+        self.balloon_btn = QPushButton(" Ballon")
+        # ========== UAV (Drone) Class ==========
+        self.uav_btn = QPushButton(" UAV")
+        
+        if (assets_path / "drone.png").exists():
+            self.uav_btn.setIcon(QIcon(str(assets_path / "drone.png")))
+            print("✓ Drone icon loaded")
+        else:
+            print("✗ drone.png NOT FOUND")
+
+
+        
+        
 
         # بارگذاری آیکون‌ها
         if (assets_path / "people.png").exists():
@@ -96,10 +108,14 @@ class ControlBar(QWidget):
         else:
             print("✗ balloon.png NOT FOUND")
 
-        icon_size = QSize(28, 28)
+        icon_size = QSize(25, 25)
         self.person_btn.setIconSize(icon_size)
         self.car_btn.setIconSize(icon_size)
         self.balloon_btn.setIconSize(icon_size)
+        self.uav_btn.setIconSize(icon_size)
+
+        
+        
 
         class_style = """
             QPushButton {
@@ -118,10 +134,12 @@ class ControlBar(QWidget):
         self.person_btn.setStyleSheet(class_style)
         self.car_btn.setStyleSheet(class_style)
         self.balloon_btn.setStyleSheet(class_style)
+        self.uav_btn.setStyleSheet(class_style)
         
         self.person_btn.clicked.connect(lambda: self.flight.send_class(1))
         self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
         self.balloon_btn.clicked.connect(lambda: self.flight.send_class(0))
+        self.uav_btn.clicked.connect(lambda: self.flight.send_class(3))
 
 
 
@@ -142,10 +160,13 @@ class ControlBar(QWidget):
         layout.addWidget(self.speed_3_btn)
         layout.addWidget(self.speed_6_btn)
         layout.addWidget(self._make_separator())
-        
+
+
+        layout.addWidget(self.uav_btn)
         layout.addWidget(self.person_btn)
         layout.addWidget(self.car_btn)
         layout.addWidget(self.balloon_btn)
+     
         
         layout.addStretch(1)
 
@@ -206,3 +227,4 @@ class ControlBar(QWidget):
         self.person_btn.setEnabled(enabled  and (self.current_cls != 1))
         self.car_btn.setEnabled(enabled  and (self.current_cls != 2))
         self.balloon_btn.setEnabled(enabled  and (self.current_cls != 0))
+        self.uav_btn.setEnabled(enabled  and (self.current_cls != 3))
