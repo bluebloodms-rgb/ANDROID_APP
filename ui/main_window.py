@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
         self.zoom_value_label.setAlignment(Qt.AlignCenter)
         self.zoom_value_label.setText("1.0X")
         self.zoom_value_label.resize(50, 28)
+        self.zoom_value_label.setAttribute(Qt.WA_TransparentForMouseEvents)
 
 
         self.steer_overlay = QWidget(self.video_label)
@@ -117,10 +118,12 @@ class MainWindow(QMainWindow):
         self.steer_value_label.setAlignment(Qt.AlignCenter)
         self.steer_value_label.setText("0°")
         self.steer_value_label.resize(50, 28)
+        self.steer_value_label.setAttribute(Qt.WA_TransparentForMouseEvents)
 
                 # Container برای باتری و ماهواره
         self.top_left_container = QWidget(self.video_label)
         self.top_left_container.setStyleSheet("background-color: transparent;")
+        self.top_left_container.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         container_layout = QHBoxLayout(self.top_left_container)
         container_layout.setContentsMargins(0, 0, 0, 0)
@@ -226,10 +229,7 @@ class MainWindow(QMainWindow):
             flight_menu.addAction(action)
             self.flight_actions.append(action)
 
-        # for a in self.flight_actions:
-        #     if "*" in a.text():
-        #         a.setChecked(True)
-        #         self.app_controller.flight_interface.connect(a.text().replace(" *", ""))
+
 
     def _setup_overlay_controls(self):
         fi = self.app_controller.flight_interface
