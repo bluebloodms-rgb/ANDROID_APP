@@ -19,7 +19,8 @@ class FlightState:
         self.md = 1      # 1 = Manual, 2 = Automatic
         self.cls = 0     # 0 = Person, 2 = Car
         self.spd = 19  # m/s
-        self.pitch = None     # ← اضافه کن
+        self.pitch = None    
+        self.can = 0  # 0 = inactive, 1 = cancelled/active
         self.zoom = None # ← NEW: Add this line
         self.mouse_x = None
         self.mouse_y = None
@@ -55,6 +56,8 @@ class FlightState:
                 self.zoom = float(v)
             elif k == "Pitch":                    
                 self.pitch = float(v)
+            elif k == "Can":                
+                self.can = int(v)
 
 class FlightInterface(QObject):
     connection_state_changed = Signal(str)
