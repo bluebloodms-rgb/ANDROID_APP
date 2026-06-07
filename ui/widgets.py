@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout,QSizePolicy
+from re import T
+from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QSizePolicy, QVBoxLayout, QLabel, QLineEdit
 from PySide6.QtCore import Qt, QSize         
 from PySide6.QtGui import QIcon             
 from pathlib import Path                     
@@ -37,7 +38,7 @@ class ControlBar(QWidget):
         self.start_btn.setStyleSheet(self._button_style("#4CAF50", "#388E3C"))
         self.cancel_btn.setStyleSheet(self._button_style("#f44336", "#d32f2f"))
 
-        self.start_btn.clicked.connect(lambda: self.flight.send_operation(2))
+        self.start_btn.clicked.connect(lambda: self.flight.send_operation(2,self._get_pid_values()))
         self.cancel_btn.clicked.connect(lambda: self.flight.send_operation(1))
 
         # ==================== Mode ====================
@@ -165,6 +166,78 @@ class ControlBar(QWidget):
         layout.addWidget(self.person_btn)
         layout.addWidget(self.car_btn)
         layout.addWidget(self.balloon_btn)
+
+        # ==================== PID Coefficients Section ====================
+        self.pid_widget = QWidget()
+        self.pid_widget.setFixedSize(200, 100)
+        self.pid_widget.setStyleSheet("""
+            QWidget {
+                background-color: rgba(0, 0, 0, 100);
+                border-radius: 8px;
+                margin: 2px;
+            }
+            QLineEdit {
+                background-color: #4a4a4a;
+                color: #ffffff;
+                border: 1px solid #666;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 11px;
+                min-width: 70px;
+                max-width: 80px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+            QLineEdit::placeholder {
+                color: #aaaaaa;
+            }
+        """)
+
+        pid_layout = QVBoxLayout(self.pid_widget)
+        pid_layout.setContentsMargins(5, 5, 5, 5)
+        pid_layout.setSpacing(5)
+
+        # دو ستون
+        columns_layout = QHBoxLayout()
+        columns_layout.setSpacing(10)
+
+        # ستون Yaw (3 خط)
+        yaw_layout = QVBoxLayout()
+        yaw_layout.setSpacing(4)
+
+        self.kp_yaw_input = QLineEdit()
+        self.kp_yaw_input.setPlaceholderText("kp_yaw")
+        self.kd_yaw_input = QLineEdit()
+        self.kd_yaw_input.setPlaceholderText("kd_yaw")
+        self.limit_yaw_input = QLineEdit()
+        self.limit_yaw_input.setPlaceholderText("limit_yaw")
+
+        yaw_layout.addWidget(self.kp_yaw_input)
+        yaw_layout.addWidget(self.kd_yaw_input)
+        yaw_layout.addWidget(self.limit_yaw_input)
+
+        # ستون Roll (3 خط)
+        roll_layout = QVBoxLayout()
+        roll_layout.setSpacing(4)
+
+        self.kp_roll_input = QLineEdit()
+        self.kp_roll_input.setPlaceholderText("kp_roll")
+        self.kd_roll_input = QLineEdit()
+        self.kd_roll_input.setPlaceholderText("kd_roll")
+        self.limit_roll_input = QLineEdit()
+        self.limit_roll_input.setPlaceholderText("limit_roll")
+
+        roll_layout.addWidget(self.kp_roll_input)
+        roll_layout.addWidget(self.kd_roll_input)
+        roll_layout.addWidget(self.limit_roll_input)
+
+        columns_layout.addLayout(yaw_layout)
+        columns_layout.addLayout(roll_layout)
+        pid_layout.addLayout(columns_layout)
+
+        # اضافه کردن pid_widget به layout اصلی
+        layout.addWidget(self.pid_widget)
      
         
                 # بعد از layout.addWidget همه دکمه‌ها، اضافه کن:
@@ -190,6 +263,27 @@ class ControlBar(QWidget):
             QPushButton:hover {{ background-color: {hover_color}; }}
             QPushButton:disabled {{ background-color: #777; }}
         """
+    def _get_pid_values(self):
+        """گرفتن مقادیر PID و برگرداندن به صورت رشته"""
+        kp_yaw = self.kp_yaw_input.text().strip()
+        kd_yaw = self.kd_yaw_input.text().strip()
+        limit_yaw = self.limit_yaw_input.text().strip()
+        kp_roll = self.kp_roll_input.text().strip()
+        kd_roll = self.kd_roll_input.text().strip()
+        limit_roll = self.limit_roll_input.text().strip()
+        
+        values = []
+        for val in [kp_yaw, kd_yaw, limit_yaw, kp_roll, kd_roll, limit_roll]:
+            values.append(val if val else "None")
+        
+        self.kp_yaw_input.clear()
+        self.kd_yaw_input.clear()
+        self.limit_yaw_input.clear()
+        self.kp_roll_input.clear()
+        self.kd_roll_input.clear()
+        self.limit_roll_input.clear()
+        
+        return f"kp_yaw={values[0]},kd_yaw={values[1]},limit_yaw={values[2]},kp_roll={values[3]},kd_roll={values[4]},limit_roll={values[5]}"
     def _make_separator(self):
         sep = QWidget()
         sep.setFixedSize(2, 30)
@@ -210,6 +304,7 @@ class ControlBar(QWidget):
             self.current_cls = cls
         
         enabled = self.initialized
+        enabled = True
 
         start_enabled   = (self.current_op != 2) and enabled 
 

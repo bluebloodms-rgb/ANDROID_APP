@@ -376,16 +376,12 @@ class FlightInterface(QObject):
         print("❌ Failed to send STATUSTEXT after retries")
         return False
 
-    def send_operation(self, op: int):
-        # Op:1 or Op:2
-        # msg = f"Op:{op}"
-        # print(msg)
-        # self.send_statustext(msg)
+    def send_operation(self, op: int,pid_values: str = None):
         if op ==1:
             self.send_cancel()
 
         else:
-            self.send_start()
+             self.send_start(pid_values)
 
     def send_mode(self, md: int):
         # Md:1 = Manual, Md:2 = Automatic
@@ -405,9 +401,15 @@ class FlightInterface(QObject):
         print(msg)
         self.send_statustext(msg)
 
-    def send_start(self):
-        print("start")
-        self.send_statustext("START:TRUE,Notcare:TRUE")
+    def send_start(self, pid_values: str = None):
+        if pid_values:
+            msg = f"START:TRUE,Notcare:TRUE,{pid_values}"
+        else:
+            msg = "START:TRUE,Notcare:TRUE"
+        print(msg)
+        self.send_statustext(msg)
+
+
 
     def send_cancel(self):
         print("cancel")

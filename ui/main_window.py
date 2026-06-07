@@ -521,19 +521,18 @@ class MainWindow(QMainWindow):
         if label_width < 100 or label_height < 100:
             return
         
-        # عرض نوار = 85% عرض video_label (حداکثر 1000، حداقل 500)
-        overlay_width = min(int(label_width * 0.85), 1000)
-        overlay_width = max(overlay_width, 500)  # حداقل 500
+        # افزایش عرض نوار برای جای دادن PID panel
+        overlay_width = min(int(label_width * 0.95), 1300)  # 0.85 → 0.95, 1000 → 1300
+        overlay_width = max(overlay_width, 800)  # 500 → 800
         
         x = (label_width - overlay_width) // 2
-        y = label_height - 90
+        y = label_height - 105  # 90 → 105 (کمی پایین‌تر برای ارتفاع بیشتر)
         
         x = max(0, x)
         y = max(0, y)
         
-        self.controls_overlay.setGeometry(x, y, overlay_width, 85)
+        self.controls_overlay.setGeometry(x, y, overlay_width, 100)  # 85 → 100
         self.controls_overlay.raise_()
-
         
 
 
