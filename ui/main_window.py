@@ -521,19 +521,24 @@ class MainWindow(QMainWindow):
         if label_width < 100 or label_height < 100:
             return
         
-        # افزایش عرض نوار برای جای دادن PID panel
-        overlay_width = min(int(label_width * 0.95), 1300)  # 0.85 → 0.95, 1000 → 1300
-        overlay_width = max(overlay_width, 800)  # 500 → 800
+        # محاسبه عرض و ارتفاع بر اساس سایز صفحه
+        if label_height > 600:
+            overlay_height = 130  # ارتفاع بیشتر برای فول اسکرین
+        else:
+            overlay_height = 115   # ارتفاع معمولی
+        
+        overlay_width = min(int(label_width * 0.95), 1600)
+        overlay_width = max(overlay_width, 1200)
         
         x = (label_width - overlay_width) // 2
-        y = label_height - 105  # 90 → 105 (کمی پایین‌تر برای ارتفاع بیشتر)
+        y = label_height - overlay_height - 5
         
         x = max(0, x)
         y = max(0, y)
         
-        self.controls_overlay.setGeometry(x, y, overlay_width, 100)  # 85 → 100
+        self.controls_overlay.setGeometry(x, y, overlay_width, overlay_height)
         self.controls_overlay.raise_()
-        
+                
 
 
     def _update_top_left_position(self):

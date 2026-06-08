@@ -141,12 +141,90 @@ class ControlBar(QWidget):
         self.car_btn.clicked.connect(lambda: self.flight.send_class(2))
         self.balloon_btn.clicked.connect(lambda: self.flight.send_class(0))
         self.uav_btn.clicked.connect(lambda: self.flight.send_class(3))
+        # ==================== 3 ستون اول PID (Yaw_1, Yaw_2, Roll) ====================
+        pid_left_widget = QWidget()
+        pid_left_widget.setFixedSize(300, 120)   # از 280,100 به 300,120
+        pid_left_widget.setStyleSheet("""
+            QWidget {
+                background-color: rgba(0, 0, 0, 100);
+                border-radius: 8px;
+                margin: 2px;
+            }
+            QLineEdit {
+                background-color: #6a6a6a;
+                color: #ffffff;
+                border: 1px solid #888;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 11px;
+                min-width: 70px;
+                max-width: 80px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+            QLineEdit::placeholder {
+                color: #cccccc;
+            }
+        """)
+
+        pid_left_layout = QVBoxLayout(pid_left_widget)
+        pid_left_layout.setContentsMargins(5, 5, 5, 5)
+        pid_left_layout.setSpacing(5)
+
+        columns_left = QHBoxLayout()
+        columns_left.setSpacing(8)
+
+        # Yaw_1
+        yaw1_layout = QVBoxLayout()
+        self.kp_yaw1_input = QLineEdit()
+        self.kp_yaw1_input.setPlaceholderText("kp_yaw_1")
+        self.kd_yaw1_input = QLineEdit()
+        self.kd_yaw1_input.setPlaceholderText("kd_yaw_1")
+        self.limit_yaw1_input = QLineEdit()
+        self.limit_yaw1_input.setPlaceholderText("limit_yaw_1")
+        yaw1_layout.addWidget(self.kp_yaw1_input)
+        yaw1_layout.addWidget(self.kd_yaw1_input)
+        yaw1_layout.addWidget(self.limit_yaw1_input)
+
+        # Yaw_2
+        yaw2_layout = QVBoxLayout()
+        self.kp_yaw2_input = QLineEdit()
+        self.kp_yaw2_input.setPlaceholderText("kp_yaw_2")
+        self.kd_yaw2_input = QLineEdit()
+        self.kd_yaw2_input.setPlaceholderText("kd_yaw_2")
+        self.limit_yaw2_input = QLineEdit()
+        self.limit_yaw2_input.setPlaceholderText("limit_yaw_2")
+        yaw2_layout.addWidget(self.kp_yaw2_input)
+        yaw2_layout.addWidget(self.kd_yaw2_input)
+        yaw2_layout.addWidget(self.limit_yaw2_input)
+
+        # Roll
+        roll_layout = QVBoxLayout()
+        self.kp_roll_input = QLineEdit()
+        self.kp_roll_input.setPlaceholderText("kp_roll")
+        self.kd_roll_input = QLineEdit()
+        self.kd_roll_input.setPlaceholderText("kd_roll")
+        self.limit_roll_input = QLineEdit()
+        self.limit_roll_input.setPlaceholderText("limit_roll")
+        roll_layout.addWidget(self.kp_roll_input)
+        roll_layout.addWidget(self.kd_roll_input)
+        roll_layout.addWidget(self.limit_roll_input)
+
+        columns_left.addLayout(yaw1_layout)
+        columns_left.addLayout(yaw2_layout)
+        columns_left.addLayout(roll_layout)
+        pid_left_layout.addLayout(columns_left)
+
+        # اضافه کردن 3 ستون اول به layout اصلی
+       
 
 
 
 
         # ==================== Layout ====================
         layout.addStretch(1)
+        layout.addWidget(pid_left_widget)
         
         layout.addWidget(self.start_btn)
         layout.addWidget(self.cancel_btn)
@@ -167,19 +245,20 @@ class ControlBar(QWidget):
         layout.addWidget(self.car_btn)
         layout.addWidget(self.balloon_btn)
 
-        # ==================== PID Coefficients Section ====================
-        self.pid_widget = QWidget()
-        self.pid_widget.setFixedSize(200, 100)
-        self.pid_widget.setStyleSheet("""
+
+        # ==================== 2 ستون آخر PID (Thrust, Servo) ====================
+        pid_right_widget = QWidget()
+        pid_right_widget.setFixedSize(200, 120)  # از 180,100 به 200,120
+        pid_right_widget.setStyleSheet("""
             QWidget {
                 background-color: rgba(0, 0, 0, 100);
                 border-radius: 8px;
                 margin: 2px;
             }
             QLineEdit {
-                background-color: #4a4a4a;
+                background-color: #6a6a6a;
                 color: #ffffff;
-                border: 1px solid #666;
+                border: 1px solid #888;
                 border-radius: 4px;
                 padding: 5px;
                 font-size: 11px;
@@ -190,54 +269,52 @@ class ControlBar(QWidget):
                 border: 1px solid #4CAF50;
             }
             QLineEdit::placeholder {
-                color: #aaaaaa;
+                color: #cccccc;
             }
         """)
 
-        pid_layout = QVBoxLayout(self.pid_widget)
-        pid_layout.setContentsMargins(5, 5, 5, 5)
-        pid_layout.setSpacing(5)
+        pid_right_layout = QVBoxLayout(pid_right_widget)
+        pid_right_layout.setContentsMargins(5, 5, 5, 5)
+        pid_right_layout.setSpacing(5)
 
-        # دو ستون
-        columns_layout = QHBoxLayout()
-        columns_layout.setSpacing(10)
+        columns_right = QHBoxLayout()
+        columns_right.setSpacing(8)
 
-        # ستون Yaw (3 خط)
-        yaw_layout = QVBoxLayout()
-        yaw_layout.setSpacing(4)
+        # Thrust
+        thrust_layout = QVBoxLayout()
+        self.kp_thrust_input = QLineEdit()
+        self.kp_thrust_input.setPlaceholderText("kp_thrust")
+        self.kd_thrust_input = QLineEdit()
+        self.kd_thrust_input.setPlaceholderText("kd_thrust")
+        self.limit_thrust_input = QLineEdit()
+        self.limit_thrust_input.setPlaceholderText("limit_thrust")
+        thrust_layout.addWidget(self.kp_thrust_input)
+        thrust_layout.addWidget(self.kd_thrust_input)
+        thrust_layout.addWidget(self.limit_thrust_input)
 
-        self.kp_yaw_input = QLineEdit()
-        self.kp_yaw_input.setPlaceholderText("kp_yaw")
-        self.kd_yaw_input = QLineEdit()
-        self.kd_yaw_input.setPlaceholderText("kd_yaw")
-        self.limit_yaw_input = QLineEdit()
-        self.limit_yaw_input.setPlaceholderText("limit_yaw")
+        # Servo
+        srv_layout = QVBoxLayout()
+        self.kp_srv_input = QLineEdit()
+        self.kp_srv_input.setPlaceholderText("kp_srv")
+        self.kd_srv_input = QLineEdit()
+        self.kd_srv_input.setPlaceholderText("kd_srv")
+        self.limit_srv_input = QLineEdit()
+        self.limit_srv_input.setPlaceholderText("limit_srv")
+        srv_layout.addWidget(self.kp_srv_input)
+        srv_layout.addWidget(self.kd_srv_input)
+        srv_layout.addWidget(self.limit_srv_input)
 
-        yaw_layout.addWidget(self.kp_yaw_input)
-        yaw_layout.addWidget(self.kd_yaw_input)
-        yaw_layout.addWidget(self.limit_yaw_input)
+        columns_right.addLayout(thrust_layout)
+        columns_right.addLayout(srv_layout)
+        pid_right_layout.addLayout(columns_right)
 
-        # ستون Roll (3 خط)
-        roll_layout = QVBoxLayout()
-        roll_layout.setSpacing(4)
+        # اضافه کردن 2 ستون آخر به layout اصلی
+        layout.addWidget(pid_right_widget)
 
-        self.kp_roll_input = QLineEdit()
-        self.kp_roll_input.setPlaceholderText("kp_roll")
-        self.kd_roll_input = QLineEdit()
-        self.kd_roll_input.setPlaceholderText("kd_roll")
-        self.limit_roll_input = QLineEdit()
-        self.limit_roll_input.setPlaceholderText("limit_roll")
+        
 
-        roll_layout.addWidget(self.kp_roll_input)
-        roll_layout.addWidget(self.kd_roll_input)
-        roll_layout.addWidget(self.limit_roll_input)
 
-        columns_layout.addLayout(yaw_layout)
-        columns_layout.addLayout(roll_layout)
-        pid_layout.addLayout(columns_layout)
 
-        # اضافه کردن pid_widget به layout اصلی
-        layout.addWidget(self.pid_widget)
      
         
                 # بعد از layout.addWidget همه دکمه‌ها، اضافه کن:
@@ -265,25 +342,55 @@ class ControlBar(QWidget):
         """
     def _get_pid_values(self):
         """گرفتن مقادیر PID و برگرداندن به صورت رشته"""
-        kp_yaw = self.kp_yaw_input.text().strip()
-        kd_yaw = self.kd_yaw_input.text().strip()
-        limit_yaw = self.limit_yaw_input.text().strip()
+        # ستون 1: Yaw_1
+        kp_yaw1 = self.kp_yaw1_input.text().strip()
+        kd_yaw1 = self.kd_yaw1_input.text().strip()
+        limit_yaw1 = self.limit_yaw1_input.text().strip()
+        
+        # ستون 2: Yaw_2
+        kp_yaw2 = self.kp_yaw2_input.text().strip()
+        kd_yaw2 = self.kd_yaw2_input.text().strip()
+        limit_yaw2 = self.limit_yaw2_input.text().strip()
+        
+        # ستون 3: Roll
         kp_roll = self.kp_roll_input.text().strip()
         kd_roll = self.kd_roll_input.text().strip()
         limit_roll = self.limit_roll_input.text().strip()
         
+        # ستون 4: Thrust
+        kp_thrust = self.kp_thrust_input.text().strip()
+        kd_thrust = self.kd_thrust_input.text().strip()
+        limit_thrust = self.limit_thrust_input.text().strip()
+        
+        # ستون 5: Servo
+        kp_srv = self.kp_srv_input.text().strip()
+        kd_srv = self.kd_srv_input.text().strip()
+        limit_srv = self.limit_srv_input.text().strip()
+        
         values = []
-        for val in [kp_yaw, kd_yaw, limit_yaw, kp_roll, kd_roll, limit_roll]:
+        for val in [kp_yaw1, kd_yaw1, limit_yaw1, kp_yaw2, kd_yaw2, limit_yaw2,
+                    kp_roll, kd_roll, limit_roll, kp_thrust, kd_thrust, limit_thrust,
+                    kp_srv, kd_srv, limit_srv]:
             values.append(val if val else "None")
         
-        self.kp_yaw_input.clear()
-        self.kd_yaw_input.clear()
-        self.limit_yaw_input.clear()
+        # خالی کردن همه فیلدها
+        self.kp_yaw1_input.clear()
+        self.kd_yaw1_input.clear()
+        self.limit_yaw1_input.clear()
+        self.kp_yaw2_input.clear()
+        self.kd_yaw2_input.clear()
+        self.limit_yaw2_input.clear()
         self.kp_roll_input.clear()
         self.kd_roll_input.clear()
         self.limit_roll_input.clear()
+        self.kp_thrust_input.clear()
+        self.kd_thrust_input.clear()
+        self.limit_thrust_input.clear()
+        self.kp_srv_input.clear()
+        self.kd_srv_input.clear()
+        self.limit_srv_input.clear()
         
-        return f"kp_yaw={values[0]},kd_yaw={values[1]},limit_yaw={values[2]},kp_roll={values[3]},kd_roll={values[4]},limit_roll={values[5]}"
+        return f"kp_yaw_1={values[0]},kd_yaw_1={values[1]},limit_yaw_1={values[2]},kp_yaw_2={values[3]},kd_yaw_2={values[4]},limit_yaw_2={values[5]},kp_roll={values[6]},kd_roll={values[7]},limit_roll={values[8]},kp_thrust={values[9]},kd_thrust={values[10]},limit_thrust={values[11]},kp_srv={values[12]},kd_srv={values[13]},limit_srv={values[14]}"
     def _make_separator(self):
         sep = QWidget()
         sep.setFixedSize(2, 30)
@@ -304,7 +411,6 @@ class ControlBar(QWidget):
             self.current_cls = cls
         
         enabled = self.initialized
-        enabled = True
 
         start_enabled   = (self.current_op != 2) and enabled 
 
