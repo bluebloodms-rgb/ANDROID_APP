@@ -401,13 +401,13 @@ class FlightInterface(QObject):
         print(msg)
         self.send_statustext(msg)
 
-    def send_start(self, pid_groups: list = None):
-        self.send_statustext("START:TRUE,Notcare:TRUE")
-        if pid_groups:
-            for group in pid_groups:
-                self.send_statustext(f"{group}")
-
-
+    def send_start(self, pid_values: str = None):
+        if pid_values:
+            msg = f"START:TRUE,Notcare:TRUE,{pid_values}"
+        else:
+            msg = "START:TRUE,Notcare:TRUE"
+        print(msg)
+        self.send_statustext(msg)
 
 
 
