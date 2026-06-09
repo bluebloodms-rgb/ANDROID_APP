@@ -29,7 +29,7 @@ class ControlBar(QWidget):
         # Layout اصلی
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 5, 10, 5)
-        layout.setSpacing(15)
+        layout.setSpacing(5)
 
         # ==================== Operation ====================
         self.start_btn = QPushButton("start")
@@ -143,7 +143,7 @@ class ControlBar(QWidget):
         self.uav_btn.clicked.connect(lambda: self.flight.send_class(3))
         # ==================== 3 ستون اول PID (Yaw_1, Yaw_2, Roll) ====================
         pid_left_widget = QWidget()
-        pid_left_widget.setFixedSize(260, 100)  # از 300 به 260
+        pid_left_widget.setFixedSize(260, 120)  # از 300 به 260
         pid_left_widget.setStyleSheet("""
             QWidget {
                 background-color: rgba(0, 0, 0, 100);
@@ -228,16 +228,16 @@ class ControlBar(QWidget):
         
         layout.addWidget(self.start_btn)
         layout.addWidget(self.cancel_btn)
-        layout.addWidget(self._make_separator())
+        # layout.addWidget(self._make_separator())
         
         layout.addWidget(self.manual_btn)
         layout.addWidget(self.auto_btn)
-        layout.addWidget(self._make_separator())
+        # layout.addWidget(self._make_separator())
         
         layout.addWidget(self.speed_1_btn)
         layout.addWidget(self.speed_3_btn)
         layout.addWidget(self.speed_6_btn)
-        layout.addWidget(self._make_separator())
+        # layout.addWidget(self._make_separator())
 
 
         layout.addWidget(self.uav_btn)
