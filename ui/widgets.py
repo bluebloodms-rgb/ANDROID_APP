@@ -389,8 +389,23 @@ class ControlBar(QWidget):
         self.kp_srv_input.clear()
         self.kd_srv_input.clear()
         self.limit_srv_input.clear()
+
+                # تقسیم به 4 گروه (هر گروه زیر 50 کاراکتر)
+        # گروه 1: Yaw1 (3 مقدار)
+        group1 = f"y1={values[0]},d1={values[1]},l1={values[2]}"
         
-        return f"kp_yaw_1={values[0]},kd_yaw_1={values[1]},limit_yaw_1={values[2]},kp_yaw_2={values[3]},kd_yaw_2={values[4]},limit_yaw_2={values[5]},kp_roll={values[6]},kd_roll={values[7]},limit_roll={values[8]},kp_thrust={values[9]},kd_thrust={values[10]},limit_thrust={values[11]},kp_srv={values[12]},kd_srv={values[13]},limit_srv={values[14]}"
+        # گروه 2: Yaw2 (3 مقدار)
+        group2 = f"y2={values[3]},d2={values[4]},l2={values[5]}"
+        
+        # گروه 3: Roll (3 مقدار)
+        group3 = f"r={values[6]},dr={values[7]},lr={values[8]}"
+        
+        # گروه 4: Thrust + Servo (6 مقدار)
+        group4 = f"t={values[9]},dt={values[10]},lt={values[11]},s={values[12]},ds={values[13]},ls={values[14]}"
+        
+        return [group1, group2, group3, group4]
+            
+       
     def _make_separator(self):
         sep = QWidget()
         sep.setFixedSize(2, 30)
