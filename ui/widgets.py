@@ -143,7 +143,7 @@ class ControlBar(QWidget):
         self.uav_btn.clicked.connect(lambda: self.flight.send_class(3))
         # ==================== 3 ستون اول PID (Yaw_1, Yaw_2, Roll) ====================
         pid_left_widget = QWidget()
-        pid_left_widget.setFixedSize(300, 120)   # از 280,100 به 300,120
+        pid_left_widget.setFixedSize(260, 100)  # از 300 به 260
         pid_left_widget.setStyleSheet("""
             QWidget {
                 background-color: rgba(0, 0, 0, 100);

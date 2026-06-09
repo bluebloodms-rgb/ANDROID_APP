@@ -521,14 +521,14 @@ class MainWindow(QMainWindow):
         if label_width < 100 or label_height < 100:
             return
         
-        # محاسبه عرض و ارتفاع بر اساس سایز صفحه
-        if label_height > 600:
-            overlay_height = 130  # ارتفاع بیشتر برای فول اسکرین
+        # تشخیص صفحه کوچک (Surface)
+        if label_width < 1200:
+            overlay_width = label_width - 20  # حاشیه کم
+            overlay_height = 130
         else:
-            overlay_height = 115   # ارتفاع معمولی
-        
-        overlay_width = min(int(label_width * 0.95), 1600)
-        overlay_width = max(overlay_width, 1200)
+            overlay_width = min(int(label_width * 0.95), 1600)
+            overlay_width = max(overlay_width, 1200)
+            overlay_height = 115
         
         x = (label_width - overlay_width) // 2
         y = label_height - overlay_height - 5
@@ -538,6 +538,8 @@ class MainWindow(QMainWindow):
         
         self.controls_overlay.setGeometry(x, y, overlay_width, overlay_height)
         self.controls_overlay.raise_()
+
+
                 
 
 
