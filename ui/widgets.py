@@ -340,63 +340,41 @@ class ControlBar(QWidget):
             QPushButton:hover {{ background-color: {hover_color}; }}
             QPushButton:disabled {{ background-color: #777; }}
         """
-    def _get_pid_values(self):
-        """گرفتن مقادیر PID و برگرداندن به صورت رشته"""
-        # ستون 1: Yaw_1
-        kp_yaw1 = self.kp_yaw1_input.text().strip()
-        kd_yaw1 = self.kd_yaw1_input.text().strip()
-        limit_yaw1 = self.limit_yaw1_input.text().strip()
-        
-        # ستون 2: Yaw_2
-        kp_yaw2 = self.kp_yaw2_input.text().strip()
-        kd_yaw2 = self.kd_yaw2_input.text().strip()
-        limit_yaw2 = self.limit_yaw2_input.text().strip()
-        
-        # ستون 3: Roll
-        kp_roll = self.kp_roll_input.text().strip()
-        kd_roll = self.kd_roll_input.text().strip()
-        limit_roll = self.limit_roll_input.text().strip()
-        
-        # ستون 4: Thrust
-        kp_thrust = self.kp_thrust_input.text().strip()
-        kd_thrust = self.kd_thrust_input.text().strip()
-        limit_thrust = self.limit_thrust_input.text().strip()
-        
-        # ستون 5: Servo
-        kp_srv = self.kp_srv_input.text().strip()
-        kd_srv = self.kd_srv_input.text().strip()
-        limit_srv = self.limit_srv_input.text().strip()
-        
-        values = []
-        for val in [kp_yaw1, kd_yaw1, limit_yaw1, kp_yaw2, kd_yaw2, limit_yaw2,
-                    kp_roll, kd_roll, limit_roll, kp_thrust, kd_thrust, limit_thrust,
-                    kp_srv, kd_srv, limit_srv]:
-            values.append(val if val else "None")
-        
-        # خالی کردن همه فیلدها
-        self.kp_yaw1_input.clear()
-        self.kd_yaw1_input.clear()
-        self.limit_yaw1_input.clear()
-        self.kp_yaw2_input.clear()
-        self.kd_yaw2_input.clear()
-        self.limit_yaw2_input.clear()
-        self.kp_roll_input.clear()
-        self.kd_roll_input.clear()
-        self.limit_roll_input.clear()
-        self.kp_thrust_input.clear()
-        self.kd_thrust_input.clear()
-        self.limit_thrust_input.clear()
-        self.kp_srv_input.clear()
-        self.kd_srv_input.clear()
-        self.limit_srv_input.clear()
-        
-        return f"kp_yaw_1={values[0]},kd_yaw_1={values[1]},limit_yaw_1={values[2]},kp_yaw_2={values[3]},kd_yaw_2={values[4]},limit_yaw_2={values[5]},kp_roll={values[6]},kd_roll={values[7]},limit_roll={values[8]},kp_thrust={values[9]},kd_thrust={values[10]},limit_thrust={values[11]},kp_srv={values[12]},kd_srv={values[13]},limit_srv={values[14]}"
+   
     def _make_separator(self):
         sep = QWidget()
         sep.setFixedSize(2, 30)
         sep.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sep.setStyleSheet("background-color: rgba(255,255,255,0.15); border-radius: 1px;")
         return sep
+
+
+
+    def _get_pid_values(self):
+        fields = {
+            "y1":  self.kp_yaw1_input,
+            "d1":  self.kd_yaw1_input,
+            "l1":  self.limit_yaw1_input,
+            "y2":  self.kp_yaw2_input,
+            "d2":  self.kd_yaw2_input,
+            "l2":  self.limit_yaw2_input,
+            "r":   self.kp_roll_input,
+            "dr":  self.kd_roll_input,
+            "lr":  self.limit_roll_input,
+            "t":   self.kp_thrust_input,
+            "dt":  self.kd_thrust_input,
+            "lt":  self.limit_thrust_input,
+            "s":   self.kp_srv_input,
+            "ds":  self.kd_srv_input,
+            "ls":  self.limit_srv_input,
+        }
+
+        filled = {k: v.text().strip() for k, v in fields.items() if v.text().strip()}
+
+        for widget in fields.values():
+            widget.clear()
+
+        return ",".join(f"{k}={v}" for k, v in filled.items())
 
     def update_from_flight(self, op=None, mode=None, spd=None, cls=None, initialized=None):
         if initialized is not None:
