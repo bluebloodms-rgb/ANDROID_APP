@@ -405,7 +405,7 @@ class FlightInterface(QObject):
         if pid_values:
             msg = f"START:TRUE,{pid_values}"
         else:
-            msg = "START:TRUE,"
+            msg = "START:TRUE"
         print(msg)
         self.send_statustext(msg)
 
