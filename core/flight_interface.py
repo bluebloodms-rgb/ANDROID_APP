@@ -403,9 +403,9 @@ class FlightInterface(QObject):
 
     def send_start(self, pid_values: str = None):
         if pid_values:
-            msg = f"START:TRUE,Notcare:TRUE,{pid_values}"
+            msg = f"START:TRUE,{pid_values}"
         else:
-            msg = "START:TRUE,Notcare:TRUE"
+            msg = "START:TRUE,"
         print(msg)
         self.send_statustext(msg)
 
