@@ -34,13 +34,11 @@ class FlightState:
         self.satellites = None
 
     def update_from_message(self, msg: str):
-        """
-        Example:
-        "Op: 1, St: 1, Md: 1, Cls: 0, Spd: 1.5"
-        """
         self.initialized = True
         parts = msg.replace(" ", "").split(",")
         for p in parts:
+            if ":" not in p:  # ← اضافه کن
+                continue
             k, v = p.split(":")
             if k == "Op":
                 self.op = int(v)
@@ -52,12 +50,12 @@ class FlightState:
                 self.cls = int(v)
             elif k == "Spd":
                 self.spd = float(v)
-            elif k == "Zoom":                 
+            elif k == "Zoom":
                 self.zoom = float(v)
-            elif k == "Pitch":                    
+            elif k == "Pitch":
                 self.pitch = float(v)
-            elif k == "Can":                
-                self.can = int(v)
+            elif k == "Can":
+                self.can = int(v) if v else 0
 
 class FlightInterface(QObject):
     connection_state_changed = Signal(str)
