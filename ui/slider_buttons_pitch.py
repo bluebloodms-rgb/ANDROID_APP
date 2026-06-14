@@ -36,15 +36,19 @@ class DPadWidget_Pitch(QWidget):
         layout.addWidget(self.right_btn, 1, 2)
         layout.addWidget(self.down_btn, 2, 1)
 
-        # اتصالات دکمه‌ها
-        self.up_btn.pressed.connect(self._start_up)
+
+                # ========== جهت‌های معکوس برای Pitch ==========
+        self.up_btn.pressed.connect(self._start_down)    # بالا = کاهش
         self.up_btn.released.connect(self._stop_auto)
-        self.down_btn.pressed.connect(self._start_down)
+        self.down_btn.pressed.connect(self._start_up)    # پایین = افزایش
         self.down_btn.released.connect(self._stop_auto)
-        self.left_btn.pressed.connect(self._start_down)
+        self.left_btn.pressed.connect(self._start_up)    # چپ = افزایش
         self.left_btn.released.connect(self._stop_auto)
-        self.right_btn.pressed.connect(self._start_up)
+        self.right_btn.pressed.connect(self._start_down) # راست = کاهش
         self.right_btn.released.connect(self._stop_auto)
+        # ==============================================
+
+
 
     def _create_btn(self, text):
         btn = QPushButton(text)

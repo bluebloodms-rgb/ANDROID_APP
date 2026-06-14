@@ -313,14 +313,14 @@ class MainWindow(QMainWindow):
             self.zoom_buttons.current_value = state.zoom
             self.zoom_buttons.update()  # بازکشیدن D-Pad (اختیاری)
             if hasattr(self, 'zoom_value_label'):
-                self.zoom_value_label.setText(f"{state.zoom:.1f}X")
+                self.zoom_value_label.setText(f"{int(state.zoom)}X")
         
         # ========== آپدیت زاویه (پیچ) ==========
         if hasattr(self, 'pitch_buttons') and state.pitch is not None:
             self.pitch_buttons.current_value = state.pitch
             self.pitch_buttons.update()
             if hasattr(self, 'steer_value_label'):
-                self.steer_value_label.setText(f"{state.pitch:.0f}°")
+                self.steer_value_label.setText(f"{int(state.pitch)}°")
 
 
 
