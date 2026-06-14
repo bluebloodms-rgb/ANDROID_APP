@@ -308,6 +308,21 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'mode_widget'):
             self.mode_widget.setMode(state.mode)
 
+        # ========== آپدیت زوم ==========
+        if hasattr(self, 'zoom_buttons') and state.zoom is not None:
+            self.zoom_buttons.current_value = state.zoom
+            self.zoom_buttons.update()  # بازکشیدن D-Pad (اختیاری)
+            if hasattr(self, 'zoom_value_label'):
+                self.zoom_value_label.setText(f"{state.zoom:.1f}X")
+        
+        # ========== آپدیت زاویه (پیچ) ==========
+        if hasattr(self, 'pitch_buttons') and state.pitch is not None:
+            self.pitch_buttons.current_value = state.pitch
+            self.pitch_buttons.update()
+            if hasattr(self, 'steer_value_label'):
+                self.steer_value_label.setText(f"{state.pitch:.0f}°")
+
+
 
     def _switch_camera(self, camera_index):
         # uncheck all camera menu items
@@ -418,20 +433,18 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
 
     def update_zoom_display(self, value):
+        """ارسال زوم به flight controller (بدون آپدیت UI)"""
         print(f"Zoom: {value:.1f}x")
-        if hasattr(self, 'zoom_value_label'):
-            self.zoom_value_label.setText(f"{value:.1f}X")
-        if hasattr(self, 'zoom_buttons'):
-            self.zoom_buttons.current_value = value
         self.app_controller.flight_interface.send_zoom(value)
 
     def update_steer_display(self, value):
+        """ارسال زاویه به flight controller (بدون آپدیت UI)"""
         print(f"Steer: {value:.0f}°")
-        if hasattr(self, 'steer_value_label'):
-            self.steer_value_label.setText(f"{value:.0f}°")
-        if hasattr(self, 'pitch_buttons'):
-            self.pitch_buttons.current_value = value
         self.app_controller.flight_interface.send_pitch(value)
+
+
+
+
 
 
 
