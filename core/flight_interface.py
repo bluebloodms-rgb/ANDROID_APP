@@ -429,9 +429,9 @@ class FlightInterface(QObject):
         print(f"📤 Sending Zoom: {msg}")
         self.send_statustext(msg)
     def send_pitch(self, pitch_value: float):
-        """Send pitch command (مثلاً زاویه steering)"""
-        if not (0 <= pitch_value <= 90):   # محدوده دلخواه تو
-            print(f"❌ Pitch value must be between 0 and 90 (got {pitch_value})")
+        """Send pitch command (زاویه -90 تا 90 درجه)"""
+        if not (-90.0 <= pitch_value <= 90.0):
+            print(f"❌ Pitch value must be between -90 and 90 (got {pitch_value})")
             return
         
         msg = f"Pitch:{pitch_value:.1f}"
