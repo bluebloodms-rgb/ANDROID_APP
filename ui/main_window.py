@@ -118,15 +118,15 @@ class MainWindow(QMainWindow):
             main_window=self,
             min_value=1.0, 
             max_value=10.0, 
-            step=1,
+            step=2,
             parent=self.video_label  
 )
 
         self.pitch_buttons = DPadWidget_Pitch( 
             main_window=self,
-            min_value=1.0, 
+            min_value=-90.0, 
             max_value=90.0, 
-            step=1,
+            step=5,
             parent=self.video_label  
 )
         container_layout = QHBoxLayout(self.top_left_container)
