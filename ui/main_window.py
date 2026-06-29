@@ -319,11 +319,22 @@ class MainWindow(QMainWindow):
             self.zoom_buttons.update()  # بازکشیدن D-Pad (اختیاری)
             if hasattr(self, 'zoom_value_label'):
                 self.zoom_value_label.setText(f"{int(state.zoom)}X")
-                
-        if hasattr(self, 'pitch_slider') and state.pitch is not None:
-            self.pitch_slider.set_steer(state.pitch)
-            if hasattr(self, 'steer_value_label'):
-                self.steer_value_label.setText(f"{int(state.pitch)}°")
+
+        if state.st == 2 or state.can == 1:
+            # =========================================================
+            # بروزرسانی مقادیر اسلایدرها در حالت TRACK (st == 2) 
+            # یا زمانی که CANCEL (can == 1) دریافت می‌شود
+            # در این حالت‌ها، مقادیر زوم و زاویه از سمت Flight Controller 
+            # دریافت و روی اسلایدرها نمایش داده می‌شود
+            # ========== بروزرسانی اسلایدر زاویه (Steer / Pitch) ==========
+            if state.st == 2 or state.can == 1:
+                if hasattr(self, 'pitch_slider') and state.pitch is not None:
+                    self.pitch_slider.set_steer(state.pitch)
+                    if hasattr(self, 'steer_value_label'):
+                        self.steer_value_label.setText(f"{state.pitch:.0f}°")
+
+                            
+
 
 
 
