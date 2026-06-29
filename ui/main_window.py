@@ -275,8 +275,8 @@ class MainWindow(QMainWindow):
             self.pitch_slider.raise_()
             
             if hasattr(self, 'steer_value_label') and hasattr(self, 'pitch_slider'):
-                slider_x = x  # موقعیت X اسلایدر
-                slider_y = y  # موقعیت Y اسلایدر
+                slider_x = x  
+                slider_y = y 
                 slider_width = self.pitch_slider.width()
                 
                 label_width = self.steer_value_label.width()
