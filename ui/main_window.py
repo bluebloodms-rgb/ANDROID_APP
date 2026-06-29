@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, QSize,QTimer
 from PySide6.QtGui import QImage, QPixmap, QAction, QPainter, QColor
 import serial.tools.list_ports
 
+from ui.slider import CustomSlider
 from ui.widgets import ControlBar
 from core.camera_interface import CameraInterface
 from core.flight_interface import FlightState
@@ -14,7 +15,7 @@ from ui.altitude_widget import AltitudeWidget
 from ui.hdop_widget import HdopWidget
 from ui.mode_widget import ModeWidget
 from ui.slider_buttons_zoom import DPadWidget_Zoom
-from ui.slider import CustomSlider
+
 
 
 
@@ -121,11 +122,11 @@ class MainWindow(QMainWindow):
             step=2,
             parent=self.video_label 
 )
-        
         self.pitch_slider = CustomSlider(
-            main_window=self,
-            parent=self.video_label  
-        )
+    main_window=self,
+    parent=self.video_label  
+)
+          
 
 
         container_layout = QHBoxLayout(self.top_left_container)
@@ -266,16 +267,15 @@ class MainWindow(QMainWindow):
                 label_y = y - self.zoom_value_label.height() - 10
                 self.zoom_value_label.move(label_x, label_y)
                 self.zoom_value_label.raise_()
-        
+
         if hasattr(self, 'pitch_slider') and hasattr(self, 'video_label'):
             x = 30
             y = (self.video_label.height() - self.pitch_slider.height()) // 2
             self.pitch_slider.move(x, y)
             self.pitch_slider.raise_()
-            
-            # موقعیت label زاویه (بالای D-Pad زاویه)
-            if hasattr(self, 'steer_value_label'):
-                label_x = x + (self.pitch_buttons.width() - self.steer_value_label.width()) // 2
+                 
+            if hasattr(self, 'steer_value_label') and hasattr(self, 'pitch_slider'):
+                label_x = x + (self.pitch_slider.width() - self.steer_value_label.width()) // 2
                 label_y = y - self.steer_value_label.height() - 10
                 self.steer_value_label.move(label_x, label_y)
                 self.steer_value_label.raise_()
@@ -312,10 +312,9 @@ class MainWindow(QMainWindow):
             self.zoom_buttons.update()  # بازکشیدن D-Pad (اختیاری)
             if hasattr(self, 'zoom_value_label'):
                 self.zoom_value_label.setText(f"{int(state.zoom)}X")
-        
-        # ========== آپدیت زاویه (پیچ) ==========
+                
         if hasattr(self, 'pitch_slider') and state.pitch is not None:
-            self.pitch_slider.set_zoom(state.pitch)  # توجه: متد set_zoom
+            self.pitch_slider.set_steer(state.pitch)
             if hasattr(self, 'steer_value_label'):
                 self.steer_value_label.setText(f"{int(state.pitch)}°")
 

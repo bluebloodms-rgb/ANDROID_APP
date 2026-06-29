@@ -3,15 +3,15 @@ from PySide6.QtGui import QPainter, QColor, QPen, QFont, QLinearGradient
 from PySide6.QtCore import Qt, QRect
 
 
-class CustomSteerSlider(QWidget):
+class CustomSlider(QWidget):
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
         self.main_window = main_window
         self.setFixedSize(60, 420)
-        self.marker_position = 370  # موقعیت پایین برای 0 درجه
+        self.marker_position = 370  # موقعیت پایین برای -90 درجه
         self.set_steer(0)
         self.dragging = False
-        self.steer_value = 0  # 0 تا 90 درجه
+        self.steer_value = 0  # -90 تا 90 درجه
         self.setMouseTracking(True)
         
         # Make background transparent
@@ -32,8 +32,8 @@ class CustomSteerSlider(QWidget):
         # Gradient for steer track (آبی برای زاویه)
         gradient = QLinearGradient(0, track_rect.top(), 0, track_rect.bottom())
         gradient.setColorAt(0, QColor(80, 80, 255, 200))    # آبی (MAX = 90 درجه)
-        gradient.setColorAt(0.5, QColor(80, 200, 255, 200)) # آبی روشن
-        gradient.setColorAt(1, QColor(80, 255, 200, 200))   # سبز آبی (MIN = 0 درجه)
+        gradient.setColorAt(0.5, QColor(80, 200, 255, 200)) # آبی روشن (0 درجه)
+        gradient.setColorAt(1, QColor(255, 80, 80, 200))    # قرمز (MIN = -90 درجه)
         
         painter.fillRect(track_rect, gradient)
         
@@ -48,7 +48,7 @@ class CustomSteerSlider(QWidget):
         font = QFont("Arial", 7)
         painter.setFont(font)
         painter.drawText(8, track_rect.top() + 8, "90°")
-        painter.drawText(8, track_rect.bottom() - 2, "0°")
+        painter.drawText(8, track_rect.bottom() - 2, "-90°")
         
         # Draw the movable marker
         marker_x = 15
@@ -92,9 +92,9 @@ class CustomSteerSlider(QWidget):
             track_height = self.height() - 55
             relative_pos = (self.marker_position - 25) / track_height
             
-            # تبدیل: 0-100 به 0-90 درجه
+            # تبدیل: 0-100 به -90 تا 90 درجه
             percent = 100 - (relative_pos * 100)  # 0 تا 100
-            self.steer_value = percent * 0.9  # 0 تا 90
+            self.steer_value = -90 + (percent * 1.8)  # -90 تا 90
             self.steer_value = round(self.steer_value, 0)  # عدد صحیح
             
             self.update()
@@ -105,10 +105,10 @@ class CustomSteerSlider(QWidget):
         self.dragging = False
     
     def set_steer(self, value):
-        """تنظیم زاویه از بیرون (value بین 0 تا 90)"""
-        self.steer_value = max(0.0, min(90.0, float(value)))
-        # تبدیل 0-90 به 0-100 برای موقعیت نشانگر
-        percent = self.steer_value / 90  # 0 تا 1
+        """تنظیم زاویه از بیرون (value بین -90 تا 90)"""
+        self.steer_value = max(-90.0, min(90.0, float(value)))
+        # تبدیل -90 تا 90 به 0-100 برای موقعیت نشانگر
+        percent = (self.steer_value + 90) / 180  # 0 تا 1
         track_height = self.height() - 55
         self.marker_position = 25 + (track_height * (1 - percent))
         self.update()
