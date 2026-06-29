@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         """)
         self.steer_value_label.setAlignment(Qt.AlignCenter)
         self.steer_value_label.setText("0°")
-        self.steer_value_label.resize(50, 28)
+        self.steer_value_label.resize(70, 28)
         self.steer_value_label.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         # Container برای باتری و ماهواره
@@ -273,14 +273,21 @@ class MainWindow(QMainWindow):
             y = (self.video_label.height() - self.pitch_slider.height()) // 2
             self.pitch_slider.move(x, y)
             self.pitch_slider.raise_()
-                 
+            
             if hasattr(self, 'steer_value_label') and hasattr(self, 'pitch_slider'):
-                label_x = x + (self.pitch_slider.width() - self.steer_value_label.width()) // 2
-                label_y = y - self.steer_value_label.height() - 10
+                slider_x = x  # موقعیت X اسلایدر
+                slider_y = y  # موقعیت Y اسلایدر
+                slider_width = self.pitch_slider.width()
+                
+                label_width = self.steer_value_label.width()
+                label_height = self.steer_value_label.height()
+            
+                label_x = slider_x + 30 - label_width // 2
+                label_y = slider_y 
+                
                 self.steer_value_label.move(label_x, label_y)
                 self.steer_value_label.raise_()
-
-
+              
 
         
 
@@ -474,9 +481,7 @@ class MainWindow(QMainWindow):
             return
         
         label_width = self.video_label.width()
-        label_height = self.video_label.height()
-        print(label_width,label_height)
-        
+        label_height = self.video_label.height()  
         if label_width < 100 or label_height < 100:
             return
         
@@ -498,11 +503,7 @@ class MainWindow(QMainWindow):
         self.pitch_slider.setGeometry(x, y, slider_width, slider_height)
         self.pitch_slider.raise_()
         
-        if hasattr(self, 'steer_value_label'):
-            label_x = x + 15
-            label_y = y - 30
-            self.steer_value_label.setGeometry(label_x, label_y, 50, 28)
-            self.steer_value_label.raise_()
+
 
 
                     
