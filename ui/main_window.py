@@ -119,7 +119,7 @@ class MainWindow(QMainWindow):
             main_window=self,
             min_value=1.0, 
             max_value=10.0, 
-            step=2,
+            step=1,
             parent=self.video_label 
 )
         self.pitch_slider = CustomSlider(
@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
                 label_height = self.steer_value_label.height()
             
                 label_x = slider_x + 30 - label_width // 2
-                label_y = slider_y 
+                label_y = slider_y - label_height - 5  # ← بالای slider
                 
                 self.steer_value_label.move(label_x, label_y)
                 self.steer_value_label.raise_()

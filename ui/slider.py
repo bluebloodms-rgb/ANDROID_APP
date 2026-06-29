@@ -7,7 +7,7 @@ class CustomSlider(QWidget):
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
         self.main_window = main_window
-        self.setFixedSize(90, 480)
+        self.setFixedSize(90, 400)
         self.marker_position = 420
         self.set_steer(0)
         self.dragging = False
