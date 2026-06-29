@@ -176,12 +176,11 @@ class CustomSlider(QWidget):
             max_y = self.height() - 40
             self.marker_position = max(min_y, min(max_y, new_y))
             
-            track_height = self.height() - 90
-            relative_pos = (self.marker_position - 40) / track_height
+            track_height = max_y - min_y  # ← از min_y تا max_y، نه کل height
+            relative_pos = (self.marker_position - min_y) / track_height  # 0.0 تا 1.0
             
-            percent = 100 - (relative_pos * 100)
-            self.steer_value = -90 + (percent * 1.8)
-            self.steer_value = round(self.steer_value, 0)
+            self.steer_value = 90 - (relative_pos * 180)  # 90 تا -90
+            self.steer_value = max(-90, min(90, round(self.steer_value, 0)))  # ← clamp
             
             self.update()
             if self.main_window:
@@ -192,7 +191,8 @@ class CustomSlider(QWidget):
     
     def set_steer(self, value):
         self.steer_value = max(-90.0, min(90.0, float(value)))
-        percent = (self.steer_value + 90) / 180
-        track_height = self.height() - 90
-        self.marker_position = 40 + (track_height * (1 - percent))
+        percent = (self.steer_value + 90) / 180  # 0.0 تا 1.0
+        min_y = 40
+        max_y = self.height() - 40
+        self.marker_position = min_y + ((1 - percent) * (max_y - min_y))
         self.update()
