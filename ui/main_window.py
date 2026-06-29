@@ -443,9 +443,12 @@ class MainWindow(QMainWindow):
         self.app_controller.flight_interface.send_zoom(value)
 
     def update_steer_display(self, value):
-        """ارسال زاویه به flight controller (بدون آپدیت UI)"""
         print(f"Steer: {value:.0f}°")
         self.app_controller.flight_interface.send_pitch(value)
+        if hasattr(self, 'steer_value_label'):
+            self.steer_value_label.setText(f"{int(value)}°")
+
+
 
     def _update_overlay_position(self):
         if not hasattr(self, 'controls_overlay') or not hasattr(self, 'video_label'):

@@ -196,3 +196,4 @@ class CustomSlider(QWidget):
         max_y = self.height() - 40
         self.marker_position = min_y + ((1 - percent) * (max_y - min_y))
         self.update()
+
