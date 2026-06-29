@@ -392,6 +392,7 @@ class MainWindow(QMainWindow):
         self.video_label.setPixmap(scaled_pixmap)
         if hasattr(self, 'controls_overlay'):
                 self._update_overlay_position()
+                self._update_steer_position()
 
     def on_video_mouse_press(self, event):
         if event.button() == Qt.LeftButton:
@@ -424,6 +425,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(10, self._update_controls_visibility)
         QTimer.singleShot(10, self._update_top_left_position)
         QTimer.singleShot(10, self._update_buttons_position)
+        QTimer.singleShot(10, self._update_steer_position)
         if hasattr(self, 'controls_overlay') and hasattr(self, 'video_label'):
             QTimer.singleShot(10, self._update_overlay_position)
         super().resizeEvent(event)
@@ -437,12 +439,6 @@ class MainWindow(QMainWindow):
         """ارسال زاویه به flight controller (بدون آپدیت UI)"""
         print(f"Steer: {value:.0f}°")
         self.app_controller.flight_interface.send_pitch(value)
-
-
-
-
-
-
 
     def _update_overlay_position(self):
         if not hasattr(self, 'controls_overlay') or not hasattr(self, 'video_label'):
@@ -471,7 +467,45 @@ class MainWindow(QMainWindow):
         
         self.controls_overlay.setGeometry(x, y, overlay_width, overlay_height)
         self.controls_overlay.raise_()
-                
+
+
+    def _update_steer_position(self):
+        if not hasattr(self, 'pitch_slider') or not hasattr(self, 'video_label'):
+            return
+        
+        label_width = self.video_label.width()
+        label_height = self.video_label.height()
+        print(label_width,label_height)
+        
+        if label_width < 100 or label_height < 100:
+            return
+        
+        if label_width < 900:
+            self.pitch_slider.hide()
+            if hasattr(self, 'steer_value_label'):
+                self.steer_value_label.hide()
+            return
+        else:
+            self.pitch_slider.show()
+            if hasattr(self, 'steer_value_label'):
+                self.steer_value_label.show()
+        
+        slider_width = 80
+        slider_height = 400
+        x = 20
+        y = (label_height - slider_height) // 2
+        
+        self.pitch_slider.setGeometry(x, y, slider_width, slider_height)
+        self.pitch_slider.raise_()
+        
+        if hasattr(self, 'steer_value_label'):
+            label_x = x + 15
+            label_y = y - 30
+            self.steer_value_label.setGeometry(label_x, label_y, 50, 28)
+            self.steer_value_label.raise_()
+
+
+                    
 
 
     def _update_top_left_position(self):
@@ -501,6 +535,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(50, self._update_overlay_position)
         QTimer.singleShot(10, self._update_top_left_position)
         QTimer.singleShot(10, self._update_buttons_position)
+        QTimer.singleShot(10, self._update_steer_position)
 
 
     def _update_controls_visibility(self):
