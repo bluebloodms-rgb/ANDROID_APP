@@ -1,64 +1,112 @@
 # Drone Control GUI
 
-A PySide6-based ground control station for a camera-equipped drone. It streams a live video feed, overlays real-time telemetry, and lets an operator control flight mode, speed, target class, zoom, pitch/steer angle, and PID gains — all connected to the vehicle over MAVLink via DroneKit (typically through a Bluetooth serial link).
+A PySide6-based ground control station (GCS) for a camera-equipped
+drone.
+
+The application provides a live video interface, real-time telemetry
+monitoring, and operator controls for flight mode, speed, target
+selection, zoom, pitch/steer angle, and PID parameters.
+
+The system communicates with the vehicle using **MAVLink through
+DroneKit**, typically over a Bluetooth serial connection to a flight
+controller.
+
+## GUI Preview
+
+![Drone Control GUI Preview](assets/gui_preview.png)
 
 ## Features
 
-- **Live video feed** from a local/USB camera with click-to-target and a mouse-following reticle overlay.
-- **Telemetry HUD** — battery voltage, satellite count, altitude, HDOP, and flight mode, each rendered as a custom widget.
-- **Connection indicator** showing DISCONNECTED / CONNECTING / CONNECTED / ERROR state, with automatic reconnect and heartbeat monitoring.
-- **Flight control bar** — Start/Cancel, Manual/Auto mode, speed presets, and target class selection (person/car/balloon/UAV).
-- **PID tuning panel** — inline fields for Yaw, Roll, Thrust, and Servo gains (Kp/Kd/limit), sent with the Start command.
-- **Zoom D-Pad** and **pitch/steer slider** for camera control, with on-screen value readouts.
-- **Camera and Flight Controller menus** for switching between detected cameras and Bluetooth/COM ports at runtime.
+-   Live camera video streaming using OpenCV.
+-   Real-time telemetry display:
+    -   Battery voltage
+    -   Satellite count
+    -   Altitude
+    -   HDOP
+    -   Flight mode
+-   MAVLink connection monitoring with reconnect support.
+-   Flight controls:
+    -   Start / Cancel commands
+    -   Manual / Auto mode selection
+    -   Speed selection
+    -   Target selection (Person, Car, Balloon, UAV)
+-   PID tuning interface.
+-   Camera controls:
+    -   Zoom control
+    -   Pitch / steer slider
+-   Runtime selection of camera and flight controller ports.
 
 ## Requirements
 
-- Python 3.10+
-- A camera accessible via OpenCV
-- A MAVLink-speaking flight controller reachable over a serial/Bluetooth COM port
+-   Python 3.10+
+-   OpenCV-compatible webcam
+-   MAVLink-compatible flight controller
+-   Bluetooth or serial COM connection
 
 ## Installation
 
-```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+Clone the repository:
 
+``` bash
+git clone https://github.com/khosrooo/GUI_UAV.git
+```
+
+Create a virtual environment:
+
+``` bash
+python -m venv venv
+```
+
+Activate the virtual environment:
+
+Windows:
+
+``` bash
+venv\Scripts\activate
+```
+
+Linux / macOS:
+
+``` bash
+source venv/bin/activate
+```
+
+Install dependencies:
+
+``` bash
 pip install -r requirements.txt
 ```
 
 ## Running
 
-```bash
+Start the application:
+
+``` bash
 python main.py
 ```
 
-On launch, the app auto-detects a camera and attempts to auto-connect to a flight controller over Bluetooth. Use the **Camera** and **Flight Controller** menus to switch devices manually if needed.
+The application will automatically detect available cameras and attempt
+to connect to the flight controller.
 
-## Assets
+## Warning
 
-The UI expects the following images under `assets/` (referenced by the widgets but not bundled in this repo):
+Before running the application:
 
-```
-app_icon.ico
-altitude.png
-placeholder.png
-plane-mode.png
-satellite.png
-people.png
-sedan.png
-balloon.png
-drone.png
-```
+-   Make sure a webcam or USB camera is connected.
+-   The camera must be detected by the operating system.
+-   Close other applications that may already be using the camera.
+
+If no camera is connected, the live video interface will not work
+correctly.
 
 ## Notes
 
-- Telemetry and mode updates arrive from a background MAVLink listener thread; UI updates should be marshalled to the Qt main thread (see `flight_interface.py`).
-- PID input fields are cleared automatically after each Start command.
+-   Telemetry and flight mode updates are received through a background
+    MAVLink listener.
+-   Qt UI updates are handled through the main GUI thread.
+-   PID parameters are sent with the Start command.
+-   A stable MAVLink connection is required for reliable operation.
 
 ## License
 
-Add your license of choice here (MIT, Apache-2.0, etc.).
+Add your preferred license here.
