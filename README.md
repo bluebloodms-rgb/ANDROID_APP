@@ -92,7 +92,7 @@ Start the application:
 Change to:
 class Parameters(collections.abc.MutableMapping, HasObservers):
 ```
-RUN THIS:
+Run this:
 ``` bash
 python main.py
 ```
