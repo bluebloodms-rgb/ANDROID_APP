@@ -78,8 +78,19 @@ pip install -r requirements.txt
 ```
 
 ## Running
+This issue happens because `collections.MutableMapping` was moved to `collections.abc.MutableMapping` in Python 3.10+.
 
+The required change must be applied in:
+
+`venv\Lib\site-packages\dronekit\__init__.py`
+
+Find:
+
+```python
+class Parameters(collections.MutableMapping, HasObservers):
 Start the application:
+Change to:
+class Parameters(collections.abc.MutableMapping, HasObservers):
 
 ``` bash
 python main.py
