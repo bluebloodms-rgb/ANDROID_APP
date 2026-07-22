@@ -119,6 +119,4 @@ correctly.
 -   PID parameters are sent with the Start command.
 -   A stable MAVLink connection is required for reliable operation.
 
-## License
 
-Add your preferred license here.
