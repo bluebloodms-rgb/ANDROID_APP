@@ -42,8 +42,7 @@ fun TelemetryWidget(
 ) {
     Surface(
         modifier = modifier
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .fillMaxWidth(),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
         color = PanelTranslucent,
         border = BorderStroke(1.dp, color.copy(alpha = 0.3f))

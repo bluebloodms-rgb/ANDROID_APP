@@ -554,7 +554,48 @@ M M M M M
 
 ---
 
-**Generated on:** 2026-08-24
+## 🔧 Update — 2026-08-26 (ب): فاز ۱ بازطراحی UI + Permissions
+
+بازخورد تست میدانی روی Android 16: «UI کلاً به‌هم ریخته» — ریشه‌یابی و اصلاح انجام شد.
+
+### ریشه خرابی UI
+1. **`TelemetryWidget.fillMaxWidth()`** داخل Row با ۴ ویجت → انفجار layout نوار بالا (باگ اصلی)
+2. عدم مدیریت insets → نوار زیر status bar
+3. **هیچ runtime permission درخواست نمی‌شد** → دوربین و بلوتوث روی Android 12+ عملاً کار نمی‌کردند
+4. پنل پایین شلوغ PID/سرعت/هدف + D-Pad + PitchSlider با سایزهای هاردکد ناسازگار
+5. Race condition در VideoSurface (`previewView!!` قبل از ساخت view)
+
+### تغییرات این فاز
+- **MainScreen بازنویسی کامل** (فاز ۱):
+  - دوربین گوشی تمام‌صفحه (`FILL_CENTER`) + crosshair
+  - نوار تلمتری کامپکت با `statusBarsPadding()` (BAT/SAT/ALT/HDOP با placeholder `--`)
+  - دو دکمه بزرگ START / CANCEL با `navigationBarsPadding()` — فقط وقتی متصل فعال
+  - دکمه CONNECT → دیالوگ لیست همه دستگاه‌های paired (بدون فیلتر نام)
+  - BottomControlPanel / DirectionalPad / PitchSlider از صفحه حذف شدند (کد حفظ شده)
+- **Runtime Permissions**:
+  - CAMERA (همه نسخه‌ها)، BLUETOOTH_CONNECT (API 31+)، ACCESS_FINE_LOCATION (API ≤30)، POST_NOTIFICATIONS (API 33+)
+  - پیاده‌سازی با `rememberLauncherForActivityResult(RequestMultiplePermissions)`
+- **بلوتوث**:
+  - `startForeground()` بلافاصله در onCreate سرویس (رفع کرش ForegroundServiceDidNotStart در Android 12+)
+  - نمایش همه paired devices + refresh؛ پیام جدا برای BT خاموش / permission ناموجود
+  - catch SecurityException در connect سرویس
+- **VideoSurface**: یک AndroidView فعال در هر لحظه، bind بعد از آماده شدن view + granted بودن permission، `onRelease` پاک‌سازی state
+- TopBar بازنویسی شد (بدون تب‌ها، افقی قابل اسکرول)؛ دایره crosshair از Transparent به رنگ واقعی اصلاح شد
+- سازگاری: targetSdk=34 نگه داشته شد (روی Android 15/16 edge-to-edge اجباری نیست)؛ minSdk 26
+
+### وضعیت بیلد
+- `assembleDebug` ✅ / `testDebugUnitTest` 22/22 ✅
+- APK: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+### ⚠️ محدودیت‌های شناخته‌شده فعلی
+1. تلمتری فقط پس از اتصال واقعی مقدار دارد؛ فرمت STATUSTEXT پرنده باید با پروتکل واقعی مطابقت داشته باشد
+2. اتصال بلوتوث از طریق startForegroundService است (نه bindService) — LocalBinder استفاده نمی‌شود
+3. START بدون PID ارسال می‌شود (`START:TRUE`) — در فاز بعد باید PID اضافه شود
+4. Settings/Phase1Test از جریان ناوبری خارج شده‌اند ولی کدشان موجود است
+
+---
+
+**Generated on:** 2026-08-24 (updated: 2026-08-26)
 **Platform:** Android (AOSP)
 **Version:** 1.0 (versionCode: 1)
 **Target APK:** `app-debug.apk`

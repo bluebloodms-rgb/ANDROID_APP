@@ -58,29 +58,35 @@ class ConnectionViewModel @Inject constructor(
     private var backoffIndex = 0
 
     init {
-        loadBondedDevices()
         observeConnectionState()
         observeAutoReconnectSetting()
     }
 
-    private fun loadBondedDevices() {
+    /** True if device has a Bluetooth adapter and it is currently enabled. */
+    fun isBluetoothReady(): Boolean {
+        val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        return manager.adapter?.isEnabled == true
+    }
+
+    /** (Re)loads ALL paired devices - no name filtering. Requires BLUETOOTH_CONNECT on API 31+. */
+    fun refreshBondedDevices() {
         viewModelScope.launch {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val adapter = bluetoothManager.adapter
-            if (adapter != null) {
-                val bondedDevices = adapter.bondedDevices
-                val flightControllerDevices = bondedDevices.filter { device ->
-                    // Filter for likely flight controller devices (HC-05, HC-06, etc.)
-                    device.name?.let { name ->
-                        name.contains("HC-", true) ||
-                        name.contains("BT", true) ||
-                        name.contains("Flight", true) ||
-                        name.contains("Drone", true) ||
-                        name.contains("MAV", true)
-                    } ?: false
+            try {
+                val bluetoothManager =
+                    context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val adapter = bluetoothManager.adapter
+                if (adapter == null || !adapter.isEnabled) {
+                    _availableDevices.value = emptyList()
+                    Timber.w("Bluetooth adapter missing or disabled")
+                    return@launch
                 }
-                _availableDevices.value = flightControllerDevices.toList()
-                Timber.d("Found ${flightControllerDevices.size} bonded flight controller devices")
+                val devices = adapter.bondedDevices
+                    .sortedBy { it.name?.lowercase() ?: "~" }
+                _availableDevices.value = devices
+                Timber.d("Found ${devices.size} paired devices")
+            } catch (e: SecurityException) {
+                Timber.e(e, "Missing BLUETOOTH_CONNECT permission")
+                _availableDevices.value = emptyList()
             }
         }
     }

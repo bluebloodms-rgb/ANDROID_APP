@@ -1,290 +1,291 @@
 package com.dronegcs.app.ui.screens
 
+import android.Manifest
+import android.bluetooth.BluetoothDevice
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
-import com.dronegcs.app.domain.model.Command
-import com.dronegcs.app.domain.model.VideoSource
-import com.dronegcs.app.ui.components.controls.BottomControlPanel
-import com.dronegcs.app.ui.components.controls.DirectionalPad
-import com.dronegcs.app.ui.components.controls.Direction
-import com.dronegcs.app.ui.components.controls.PitchSlider
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dronegcs.app.domain.model.ConnectionUiState
 import com.dronegcs.app.ui.components.hud.CrosshairOverlay
 import com.dronegcs.app.ui.components.hud.TopBar
 import com.dronegcs.app.ui.components.video.VideoSurface
 import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 import com.dronegcs.app.viewmodel.TelemetryViewModel
-import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Phase-1 GCS screen: phone camera preview + telemetry bar + START/CANCEL.
+ * Flight-controller / gimbal controls are intentionally omitted for now.
+ */
 @Composable
 fun MainScreen(
-    connectionViewModel: ConnectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    telemetryViewModel: TelemetryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    cameraViewModel: CameraViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    connectionViewModel: ConnectionViewModel = viewModel(),
+    telemetryViewModel: TelemetryViewModel = viewModel(),
+    cameraViewModel: CameraViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val flightState by telemetryViewModel.flightState.collectAsStateWithLifecycle()
     val connectionUiState by connectionViewModel.uiState.collectAsStateWithLifecycle()
-    val videoSource by cameraViewModel.videoSource.collectAsStateWithLifecycle()
 
-    var expandedVideoMenu by remember { mutableStateOf(false) }
-    var rtspUrl by remember { mutableStateOf("") }
-    var showRtspInput by remember { mutableStateOf(false) }
+    val isConnected = connectionUiState is ConnectionUiState.Connected
+    val isConnecting = connectionUiState is ConnectionUiState.Connecting
 
-    val isConnected = connectionUiState is com.dronegcs.app.domain.model.ConnectionUiState.Connected
+    // ---------- Runtime permissions ----------
+    var cameraGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var btGranted by remember { mutableStateOf(bluetoothPermissionGranted(context)) }
+    var showConnectDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopBar(
-                flightState = flightState,
-                onTabSelected = { index ->
-                    // Handle tab selection
-                },
-                onReconnectClick = {
-                    connectionViewModel.reconnect()
-                },
-                currentTab = 0
-            )
-        },
-        content = { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                // Video Surface (full screen background)
-                VideoSurface(
-                    cameraViewModel = cameraViewModel,
-                    onTap = { x, y ->
-                        connectionViewModel.sendPosition(x.toInt(), y.toInt())
-                    }
-                )
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        cameraGranted = grants[Manifest.permission.CAMERA] == true || cameraGranted
+        btGranted = bluetoothPermissionGranted(context)
+        if (btGranted) connectionViewModel.refreshBondedDevices()
+    }
 
-                // Crosshair overlay
-                CrosshairOverlay()
-
-                // Left: Pitch Slider
-                PitchSlider(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 16.dp)
-                        .fillMaxHeight(0.6f),
-                    pitch = flightState.pitch ?: 0f,
-                    onPitchChange = { pitch ->
-                        connectionViewModel.sendPitch(pitch)
-                    },
-                    enabled = isConnected
-                )
-
-                // Right: Directional Pad
-                DirectionalPad(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 16.dp)
-                        .size(200.dp),
-                    zoom = flightState.zoom ?: 1f,
-                    onDirectionClick = { direction ->
-                        when (direction) {
-                            Direction.UP -> connectionViewModel.sendPitch((flightState.pitch ?: 0f) + 5f)
-                            Direction.DOWN -> connectionViewModel.sendPitch((flightState.pitch ?: 0f) - 5f)
-                            Direction.LEFT -> connectionViewModel.sendSpeed((flightState.spd ?: 19f) - 1f)
-                            Direction.RIGHT -> connectionViewModel.sendSpeed((flightState.spd ?: 19f) + 1f)
-                        }
-                    },
-                    onCenterClick = { connectionViewModel.sendCancel() },
-                    enabled = isConnected
-                )
-
-                // Video source selector (top-right)
-                VideoSourceSelector(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp),
-                    videoSource = videoSource,
-                    onVideoSourceSelected = { source ->
-                        when (source) {
-                            is VideoSource.RtspStream -> {
-                                showRtspInput = true
-                                rtspUrl = source.url
-                            }
-                            else -> {
-                                cameraViewModel.setVideoSource(source)
-                                showRtspInput = false
-                            }
-                        }
-                    },
-                    expanded = expandedVideoMenu,
-                    onExpandedChange = { expandedVideoMenu = it },
-                    onRtspUrlSubmit = { url ->
-                        cameraViewModel.setVideoSource(VideoSource.RtspStream(url))
-                        showRtspInput = false
-                        expandedVideoMenu = false
-                    },
-                    rtspUrl = rtspUrl,
-                    onRtspUrlChange = { rtspUrl = it },
-                    showRtspInput = showRtspInput
-                )
-            }
-        },
-        bottomBar = {
-            BottomControlPanel(
-                modifier = Modifier.fillMaxWidth(),
-                connectionViewModel = connectionViewModel,
-                telemetryViewModel = telemetryViewModel,
-                enabled = isConnected
-            )
+    LaunchedEffect(Unit) {
+        cameraViewModel.setVideoSource(
+            com.dronegcs.app.domain.model.VideoSource.PhoneCamera()
+        )
+        val wanted = mutableListOf<String>()
+        if (!cameraGranted) wanted += Manifest.permission.CAMERA
+        if (Build.VERSION.SDK_INT >= 31 && !btGranted) {
+            wanted += Manifest.permission.BLUETOOTH_CONNECT
         }
-    )
-}
+        if (Build.VERSION.SDK_INT <= 30 && !btGranted) {
+            wanted += Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            wanted += Manifest.permission.POST_NOTIFICATIONS
+        }
+        if (wanted.isNotEmpty()) {
+            permissionLauncher.launch(wanted.toTypedArray())
+        } else {
+            connectionViewModel.refreshBondedDevices()
+        }
+    }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun VideoSourceSelector(
-    modifier: Modifier = Modifier,
-    videoSource: VideoSource,
-    onVideoSourceSelected: (VideoSource) -> Unit,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onRtspUrlSubmit: (String) -> Unit,
-    rtspUrl: String,
-    onRtspUrlChange: (String) -> Unit,
-    showRtspInput: Boolean
-) {
-    val sources = listOf(
-        VideoSource.PhoneCamera(facing = androidx.camera.core.CameraSelector.LENS_FACING_BACK) to "Back Camera",
-        VideoSource.PhoneCamera(facing = androidx.camera.core.CameraSelector.LENS_FACING_FRONT) to "Front Camera",
-        VideoSource.RtspStream("") to "RTSP Stream"
-    )
-
-    var currentRtspUrl by remember { mutableStateOf(rtspUrl) }
-
-    Surface(
-        modifier = modifier,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-        color = androidx.compose.ui.graphics.Color(0xCC000000),
-        shadowElevation = 8.dp
+    // ---------- Layout ----------
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
+        VideoSurface(
+            cameraViewModel = cameraViewModel,
+            cameraPermissionGranted = cameraGranted
+        )
+
+        CrosshairOverlay()
+
+        TopBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            flightState = flightState,
+            onConnectClick = {
+                connectionViewModel.refreshBondedDevices()
+                showConnectDialog = true
+            },
+            onDisconnectClick = { connectionViewModel.disconnect() }
+        )
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 32.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
         ) {
-            // Dropdown trigger
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.fillMaxWidth().clickable { onExpandedChange(!expanded) },
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Button(
+                onClick = { connectionViewModel.sendStart() },
+                enabled = isConnected,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                Text("START", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Button(
+                onClick = { connectionViewModel.sendCancel() },
+                enabled = isConnected,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+
+        if (isConnecting) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 76.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = when (videoSource) {
-                        is VideoSource.PhoneCamera -> if (videoSource.facing == androidx.camera.core.CameraSelector.LENS_FACING_BACK) "Back Camera" else "Front Camera"
-                        is VideoSource.RtspStream -> "RTSP Stream"
-                        else -> "No Source"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = "Expand",
-                    tint = MaterialTheme.colorScheme.primary
+                    text = (connectionUiState as? ConnectionUiState.Connecting)?.deviceName
+                        ?.let { "Connecting to $it…" } ?: "Connecting…",
+                    color = Color.White,
+                    fontSize = 13.sp
                 )
             }
+        }
+    }
 
-            if (expanded) {
-                androidx.compose.foundation.layout.Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    sources.forEach { (source, label) ->
-                        androidx.compose.foundation.layout.Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
-                                    if (source is VideoSource.RtspStream) {
-                                        onExpandedChange(true)
-                                        // Will show RTSP input below
-                                    } else {
-                                        onVideoSourceSelected(source)
-                                        onExpandedChange(false)
-                                    }
-                                },
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            if (videoSource == source) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+    if (showConnectDialog) {
+        BluetoothConnectDialog(
+            connectionViewModel = connectionViewModel,
+            bluetoothReady = btGranted && connectionViewModel.isBluetoothReady(),
+            onDismiss = { showConnectDialog = false }
+        )
+    }
+}
+
+private fun bluetoothPermissionGranted(context: android.content.Context): Boolean =
+    if (Build.VERSION.SDK_INT >= 31) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+    } else {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+@Composable
+private fun BluetoothConnectDialog(
+    connectionViewModel: ConnectionViewModel,
+    bluetoothReady: Boolean,
+    onDismiss: () -> Unit
+) {
+    val devices by connectionViewModel.availableDevices.collectAsStateWithLifecycle()
+    val uiState by connectionViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { connectionViewModel.refreshBondedDevices() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Bluetooth Devices") },
+        text = {
+            when {
+                !bluetoothReady -> {
+                    Column {
+                        Text(
+                            "Bluetooth is off or permission is missing.\n" +
+                                "Enable Bluetooth and grant the Nearby-devices permission, then refresh.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = { connectionViewModel.refreshBondedDevices() }) {
+                            Text("Refresh")
                         }
                     }
-
-                    // RTSP URL input when RTSP is selected or expanded
-                    if (showRtspInput || (videoSource is VideoSource.RtspStream)) {
-                        TextField(
-                            value = currentRtspUrl,
-                            onValueChange = onRtspUrlChange,
-                            label = { Text("RTSP URL") },
-                            placeholder = { Text("rtsp://...") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            colors = androidx.compose.material3.TextFieldDefaults.textFieldColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
+                }
+                uiState is ConnectionUiState.Connecting -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(20.dp).width(20.dp)
                         )
-
-                        androidx.compose.foundation.layout.Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Button(onClick = { onRtspUrlSubmit(currentRtspUrl) }) {
-                                Text("Connect")
+                        Spacer(Modifier.width(12.dp))
+                        Text("Connecting…")
+                    }
+                }
+                devices.isEmpty() -> {
+                    Column {
+                        Text(
+                            "No paired devices found.\n\nPair your flight controller in Android Bluetooth settings first.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = { connectionViewModel.refreshBondedDevices() }) {
+                            Text("Refresh")
+                        }
+                    }
+                }
+                else -> {
+                    LazyColumn {
+                        items(devices, key = { it.address }) { device ->
+                            DeviceRow(device = device) {
+                                connectionViewModel.connect(device)
+                                onDismiss()
                             }
                         }
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
         }
+    )
+}
+
+@Composable
+private fun DeviceRow(device: BluetoothDevice, onClick: () -> Unit) {
+    val name = try {
+        device.name ?: "Unknown device"
+    } catch (_: SecurityException) {
+        "Unknown device"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp)
+    ) {
+        Text(text = name, fontWeight = FontWeight.Bold)
+        Text(
+            text = device.address,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

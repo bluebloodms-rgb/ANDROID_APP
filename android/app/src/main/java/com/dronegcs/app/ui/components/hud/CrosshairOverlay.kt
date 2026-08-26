@@ -66,7 +66,7 @@ fun CrosshairOverlay(
 
             // Center circle
             drawCircle(
-                color = Color.Transparent,
+                color = color.copy(alpha = 0.7f),
                 center = androidx.compose.ui.geometry.Offset(centerX, centerY),
                 radius = circleRadius,
                 style = Stroke(width = strokeWidth)

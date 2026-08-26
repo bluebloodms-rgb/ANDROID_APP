@@ -70,6 +70,9 @@ class BluetoothSppService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        // Must enter foreground immediately after startForegroundService()
+        // or Android 12+ throws ForegroundServiceDidNotStartInTimeException
+        startForeground(NOTIFICATION_ID, buildNotification())
         startWriteWorker()
         Timber.d("BluetoothSppService created")
     }
@@ -110,34 +113,45 @@ class BluetoothSppService : Service() {
             disconnectInternal()
         }
 
-        link.publishState(ConnectionState.Connecting(device.name))
-        bluetoothDevice = device
+        try {
+            link.publishState(ConnectionState.Connecting(device.name))
+            bluetoothDevice = device
 
-        connectJob = serviceScope.launch {
-            val socket = withTimeoutOrNull(10000) {
-                device.createRfcommSocketToServiceRecord(UUID.fromString(MavlinkProtocol.SPP_UUID))
+            connectJob = serviceScope.launch {
+                val socket = try {
+                    withTimeoutOrNull(10000) {
+                        device.createRfcommSocketToServiceRecord(UUID.fromString(MavlinkProtocol.SPP_UUID))
+                    }
+                } catch (e: SecurityException) {
+                    Timber.e(e, "Missing BLUETOOTH_CONNECT permission")
+                    link.publishState(ConnectionState.Error("Bluetooth permission missing"))
+                    return@launch
+                }
+
+                if (socket == null) {
+                    Timber.e("Failed to create RFCOMM socket (timeout)")
+                    link.publishState(ConnectionState.Error("Failed to create socket"))
+                    return@launch
+                }
+
+                bluetoothSocket = socket
+
+                try {
+                    socket.connect()
+                    isConnected = true
+                    link.publishState(ConnectionState.Connected(device.name ?: "Unknown", device.address))
+                    Timber.d("Connected to ${device.name} (${device.address})")
+                    startReadLoop()
+                    updateNotification()
+                } catch (e: IOException) {
+                    Timber.e(e, "Connection failed")
+                    link.publishState(ConnectionState.Error("Connection failed: ${e.message}"))
+                    closeSocket()
+                }
             }
-
-            if (socket == null) {
-                Timber.e("Failed to create RFCOMM socket (timeout)")
-                link.publishState(ConnectionState.Error("Failed to create socket"))
-                return@launch
-            }
-
-            bluetoothSocket = socket
-
-            try {
-                socket.connect()
-                isConnected = true
-                link.publishState(ConnectionState.Connected(device.name ?: "Unknown", device.address))
-                Timber.d("Connected to ${device.name} (${device.address})")
-                startReadLoop()
-                updateNotification()
-            } catch (e: IOException) {
-                Timber.e(e, "Connection failed")
-                link.publishState(ConnectionState.Error("Connection failed: ${e.message}"))
-                closeSocket()
-            }
+        } catch (e: SecurityException) {
+            Timber.e(e, "SecurityException in connect()")
+            link.publishState(ConnectionState.Error("Bluetooth permission missing"))
         }
     }
 
@@ -245,46 +259,43 @@ class BluetoothSppService : Service() {
         }
     }
 
-    private fun updateNotification() {
+    private fun buildNotification(): Notification {
         val state = link.currentState()
         val contentTitle = when (state) {
             is ConnectionState.Connected -> "Connected to ${state.deviceName}"
             is ConnectionState.Connecting -> "Connecting to ${state.deviceName}..."
             is ConnectionState.Error -> "Connection Error"
-            else -> "Disconnected"
+            else -> "Drone GCS ready"
         }
 
         val contentText = when (state) {
             is ConnectionState.Connected -> "Flight controller link active"
             is ConnectionState.Connecting -> "Establishing RFCOMM connection..."
             is ConnectionState.Error -> state.message
-            else -> "Tap to reconnect"
+            else -> "Waiting for Bluetooth connection"
         }
 
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(contentTitle)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_bluetooth)
             .setContentIntent(pendingIntent)
-            .setOngoing(isConnected)
+            .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
+    }
 
-        if (isConnected) {
-            startForeground(NOTIFICATION_ID, notification)
-        } else {
-            stopForeground(false)
-            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
-        }
+    private fun updateNotification() {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
     }
 
     // --- Intent Actions ---

@@ -28,12 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.PlayerView
 import com.dronegcs.app.R
@@ -41,83 +40,77 @@ import com.dronegcs.app.domain.model.VideoSource
 import com.dronegcs.app.viewmodel.CameraViewModel
 
 /**
- * Video surface composable that renders either CameraX preview or ExoPlayer RTSP stream
+ * Full-screen video surface: CameraX preview or RTSP stream.
+ * Only the active source is composed; binding waits until both the
+ * AndroidView exists and the required permission has been granted.
  */
 @Composable
 fun VideoSurface(
     modifier: Modifier = Modifier.fillMaxSize(),
     cameraViewModel: CameraViewModel,
+    cameraPermissionGranted: Boolean = true,
     onTap: ((x: Float, y: Float) -> Unit)? = null
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val videoSource by cameraViewModel.videoSource.collectAsStateWithLifecycle()
 
-    // PreviewView for CameraX
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
-    // PlayerView for RTSP
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
 
-    // Handle tap gestures on the surface
     val tapModifier = modifier
         .fillMaxSize()
         .pointerInput(Unit) {
             onTap?.let { callback ->
                 detectTapGestures(
-                    onTap = { offset ->
-                        callback(offset.x, offset.y)
-                    }
+                    onTap = { offset -> callback(offset.x, offset.y) }
                 )
             }
         }
 
     Box(modifier = tapModifier) {
-        // CameraX PreviewView
-        AndroidView(
-            factory = { ctx ->
-                PreviewView(ctx).apply {
-                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    scaleType = PreviewView.ScaleType.FIT_CENTER
-                    previewView = this
-                }
-            },
-            update = { view ->
-                view.scaleType = PreviewView.ScaleType.FIT_CENTER
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // ExoPlayer PlayerView
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    useController = false
-                    playerView = this
-                }
-            },
-            update = { view ->
-                view.useController = false
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // Error overlay
-        when (videoSource) {
+        when (val source = videoSource) {
             is VideoSource.PhoneCamera -> {
-                val error by cameraViewModel.cameraError.collectAsStateWithLifecycle()
-                val isActive by cameraViewModel.isCameraActive.collectAsStateWithLifecycle()
-
-                if (error != null || !isActive) {
+                if (cameraPermissionGranted) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PreviewView(ctx).apply {
+                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                scaleType = PreviewView.ScaleType.FILL_CENTER
+                                previewView = this
+                            }
+                        },
+                        onRelease = { previewView = null },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    val error by cameraViewModel.cameraError.collectAsStateWithLifecycle()
+                    val isActive by cameraViewModel.isCameraActive.collectAsStateWithLifecycle()
+                    if (error != null || !isActive) {
+                        ErrorOverlay(
+                            message = error ?: "Starting camera…",
+                            icon = Icons.Default.VideocamOff
+                        )
+                    }
+                } else {
                     ErrorOverlay(
-                        message = error ?: "Camera not available",
+                        message = "Camera permission is required",
                         icon = Icons.Default.VideocamOff
                     )
                 }
             }
             is VideoSource.RtspStream -> {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            useController = false
+                            playerView = this
+                        }
+                    },
+                    onRelease = { playerView = null },
+                    modifier = Modifier.fillMaxSize()
+                )
                 val error by cameraViewModel.rtspError.collectAsStateWithLifecycle()
                 val isPlaying by cameraViewModel.isRtspPlaying.collectAsStateWithLifecycle()
                 val isBuffering by cameraViewModel.rtspBuffering.collectAsStateWithLifecycle()
-
                 if (error != null || (!isPlaying && !isBuffering)) {
                     ErrorOverlay(
                         message = error ?: "Stream not available",
@@ -127,30 +120,24 @@ fun VideoSurface(
                     BufferingOverlay()
                 }
             }
-            VideoSource.None -> {
-                EmptyOverlay()
-            }
+            VideoSource.None -> EmptyOverlay()
         }
     }
 
-    // Lifecycle handling for CameraX
-    LaunchedEffect(videoSource, lifecycleOwner.lifecycle) {
-        if (videoSource is VideoSource.PhoneCamera) {
-            cameraViewModel.bindCameraPreview(
-                previewView = previewView!!,
-                lifecycleOwner = lifecycleOwner
-            )
+    // Bind camera once the PreviewView exists and permission is granted
+    LaunchedEffect(videoSource, previewView, cameraPermissionGranted, lifecycleOwner) {
+        if (videoSource is VideoSource.PhoneCamera && cameraPermissionGranted && previewView != null) {
+            cameraViewModel.bindCameraPreview(previewView!!, lifecycleOwner)
         }
     }
 
-    // Lifecycle handling for RTSP
-    LaunchedEffect(videoSource) {
-        if (videoSource is VideoSource.RtspStream) {
-            cameraViewModel.bindRtspPlayerView(playerView = playerView!!)
+    // Bind RTSP player once PlayerView exists
+    LaunchedEffect(videoSource, playerView) {
+        if (videoSource is VideoSource.RtspStream && playerView != null) {
+            cameraViewModel.bindRtspPlayerView(playerView!!)
         }
     }
 
-    // Cleanup on dispose
     DisposableEffect(Unit) {
         onDispose {
             cameraViewModel.releaseVideoResources()
@@ -168,32 +155,27 @@ fun ErrorOverlay(
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            modifier = Modifier.size(200.dp),
+            modifier = Modifier.size(220.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xCC000000),
-            shadowElevation = 8.dp
+            color = Color(0xCC000000)
         ) {
-            Box(
+            Column(
                 modifier = Modifier.padding(24.dp),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(48.dp)
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -208,27 +190,22 @@ fun BufferingOverlay() {
         Surface(
             modifier = Modifier.size(120.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xCC000000),
-            shadowElevation = 8.dp
+            color = Color(0xCC000000)
         ) {
-            Box(
+            Column(
                 modifier = Modifier.padding(24.dp),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        text = "Buffering...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(
+                    text = "Buffering...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White
+                )
             }
         }
     }
@@ -243,30 +220,25 @@ fun EmptyOverlay() {
         Surface(
             modifier = Modifier.size(200.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xCC000000),
-            shadowElevation = 8.dp
+            color = Color(0xCC000000)
         ) {
-            Box(
+            Column(
                 modifier = Modifier.padding(24.dp),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_drone),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Text(
-                        text = "No video source selected",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_drone),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
+                Text(
+                    text = "No video source",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
