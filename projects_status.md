@@ -595,6 +595,39 @@ M M M M M
 
 ---
 
+## 🔧 Update — 2026-08-26 (ج): رفع کرش اجرای دوم (دیباگ زنده با adb)
+
+### فرآیند دیباگ
+اپ با adb روی Samsung Galaxy A54 (Android 16/API 36) نصب و logcat زنده گرفته شد.
+کرش در اجرای دوم بازتولید و stack trace واقعی استخراج شد:
+
+```
+java.lang.IllegalStateException: Not in application's main thread
+    at ProcessCameraProvider.unbindAll()
+    at CameraXPreviewRepository.startCamera
+```
+
+### علت ریشه‌ای
+عملیات CameraX (`unbindAll` / `bindToLifecycle`) باید روی main thread اجرا شود ولی
+کد داخل `Dispatchers.IO` بود. در اجرای اول timing اجازه می‌داد رد شود؛ در اجراهای
+بعدی دو coroutine همزمان روی IO thread وارد می‌شدند → کرش فوری کل اپ.
+
+(فرضیه اولیه «بازسازی NavHost» رد شد — لاگ واقعی حرف آخر را زد.)
+
+### اصلاحات
+- **CameraXPreviewRepository بازنویسی شد**:
+  - همه عملیات CameraX داخل `withContext(Dispatchers.Main)`
+  - `Mutex` برای جلوگیری از bind همزمانِ تکراری
+  - اگر provider بعد از درخواست preview آماده شود، bind خودکار انجام می‌شود
+  - `unbindAll` قبل از bind در try/catch (خطای ignorable)
+- تست: ۳ اجرای متوالی (force-stop → start) بدون هیچ FATAL، دوربین فعال، crash buffer خالی
+
+### وضعیت بیلد
+- `assembleDebug` ✅ / `testDebugUnitTest` 22/22 ✅
+- تأیید روی دستگاه واقعی: Android 16 / Galaxy A54
+
+---
+
 **Generated on:** 2026-08-24 (updated: 2026-08-26)
 **Platform:** Android (AOSP)
 **Version:** 1.0 (versionCode: 1)
