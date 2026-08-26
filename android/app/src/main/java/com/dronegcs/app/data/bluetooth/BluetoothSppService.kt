@@ -179,11 +179,16 @@ class BluetoothSppService : Service() {
             val inputStream = bluetoothSocket?.inputStream ?: return@launch
             val buffer = ByteArray(1024)
             val accumulatedBuffer = java.io.ByteArrayOutputStream()
+            var loggedFirstRx = false
 
-            while (isConnected && !serviceScope.isActive.not()) {
+            while (isConnected && coroutineContext.isActive) {
                 try {
                     val bytesRead = inputStream.read(buffer)
                     if (bytesRead > 0) {
+                        if (!loggedFirstRx) {
+                            Timber.d("First data received from flight controller: $bytesRead bytes")
+                            loggedFirstRx = true
+                        }
                         accumulatedBuffer.write(buffer, 0, bytesRead)
                         // Emit accumulated data for MAVLink parsing
                         val data = accumulatedBuffer.toByteArray()

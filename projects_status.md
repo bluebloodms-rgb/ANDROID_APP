@@ -628,6 +628,37 @@ java.lang.IllegalStateException: Not in application's main thread
 
 ---
 
+## 🔧 Update — 2026-08-26 (د): دیباگ زنده اتصال بلوتوث با SIYI
+
+### کرش دوم (یافته از logcat زنده)
+موقع نمایش چرخنده «Connecting…» اپ با `NoSuchMethodError` روی
+`KeyframesSpec$KeyframesSpecConfig.at()` داخل material3 `CircularProgressIndicator`
+کرش می‌کرد → به‌محض زدن CONNECT اپ می‌مرد و سوکت RFCOMM هم با آن قطع می‌شد
+(به همین دلیل اتصال اول به SIYI بعد از ~۹ ثانیه افتاد).
+**رفع:** ارتقای compose-bom از 2024.01.00 به **2024.05.00** (material3 1.2.1 + animation 1.6.7).
+
+### نتایج تست میدانی (Galaxy A54 / Android 16 ↔ SIYI-5902244052)
+- ✅ اتصال RFCOMM/SPP پایدار و رمزنگاری‌شده؛ بدون قطعیدن
+- ✅ فرمان START چند بار ارسال شد، همه در تلاش اول موفق
+- ✅ دوربین CameraX استریم فعال
+- ✅ صفر FATAL در طول کل جلسه
+- ⚠️ **دستگاه SIYI هیچ داده‌ای سمت گوشی نمی‌فرستد** (لاگ «First data received» ثبت نشد)
+
+### نکته معماری مهم (برای فاز بعد)
+دستگاه SIYI به‌صورت پیش‌فرض تلمتری broadcast نمی‌کند؛ پروتکل SIYI از نوع
+request/response است (باید دستورات SDK مانند ACQUIRE_ANGLES پول شود).
+STATUSTEXT سفارشی پروژه اصلی مال فلایت‌کنترلر اختصاصی خود پروژه است نه SIYI.
+برای تلمتری باید یکی از این‌ها تصمیم گرفته شود:
+1) اگر FC اختصاصی با همان پروتکل STATUSTEXT داریم → تست با آن
+2) اگر منبع تلمتری همان SIYI است → پیاده‌سازی polling پروتکل SIYI SDK
+
+### تغییرات کد
+- `compose-bom` → 2024.05.00
+- افزودن لاگ «First data received» در حلقه خواندن BluetoothSppService
+- اصلاح شرط حلقه read loop به `coroutineContext.isActive`
+
+---
+
 **Generated on:** 2026-08-24 (updated: 2026-08-26)
 **Platform:** Android (AOSP)
 **Version:** 1.0 (versionCode: 1)
