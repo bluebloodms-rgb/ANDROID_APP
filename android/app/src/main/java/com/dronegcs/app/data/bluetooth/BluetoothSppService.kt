@@ -180,6 +180,7 @@ class BluetoothSppService : Service() {
             val buffer = ByteArray(1024)
             val accumulatedBuffer = java.io.ByteArrayOutputStream()
             var loggedFirstRx = false
+            var rxDumpCount = 0
 
             while (isConnected && coroutineContext.isActive) {
                 try {
@@ -188,6 +189,13 @@ class BluetoothSppService : Service() {
                         if (!loggedFirstRx) {
                             Timber.d("First data received from flight controller: $bytesRead bytes")
                             loggedFirstRx = true
+                        }
+                        // DEBUG: hex dump of the first few chunks to identify wire format
+                        if (rxDumpCount < 6) {
+                            val hex = buffer.copyOfRange(0, bytesRead)
+                                .joinToString(" ") { "%02X".format(it) }
+                            Timber.d("RX#%d (%d bytes): %s", rxDumpCount + 1, bytesRead, hex)
+                            rxDumpCount++
                         }
                         accumulatedBuffer.write(buffer, 0, bytesRead)
                         // Emit accumulated data for MAVLink parsing

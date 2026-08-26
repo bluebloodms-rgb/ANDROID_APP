@@ -47,6 +47,19 @@ class MavlinkFlightRepository(
         startHeartbeatWatchdog()
         startModePoll()
         observeRawData()
+        observeLinkConnectionState()
+    }
+
+    /**
+     * Mirrors the Bluetooth link state into FlightState so the UI telemetry
+     * (which reads flightState.connectionState) reflects connected/disconnected.
+     */
+    private fun observeLinkConnectionState() {
+        scope.launch {
+            link.connectionState.collect { state ->
+                _flightState.update { it.copy(connectionState = state, initialized = true) }
+            }
+        }
     }
 
     /**
@@ -99,31 +112,49 @@ class MavlinkFlightRepository(
         }
     }
 
+    // Persistent buffer across chunks - frames often span 64-byte BT reads
+    private val pending = java.io.ByteArrayOutputStream()
+
     private fun parseMavlinkData(bytes: ByteArray) {
-        // Use the protocol parser to extract MAVLink messages
-        var offset = 0
-        while (offset < bytes.size) {
-            val message = MavlinkProtocol.parseMavlinkMessage(bytes.copyOfRange(offset, bytes.size))
-            if (message == null) {
-                // Try to find next STX
-                var found = false
-                for (i in offset + 1 until bytes.size) {
-                    if (bytes[i].toInt() and 0xFF == MavlinkProtocol.MAVLINK_STX) {
-                        offset = i
-                        found = true
-                        break
-                    }
+        synchronized(pending) {
+            pending.write(bytes, 0, bytes.size)
+            val buf = pending.toByteArray()
+            var offset = 0
+            val stx = MavlinkProtocol.MAVLINK_STX.toByte()
+
+            while (true) {
+                // sync to next STX candidate
+                while (offset < buf.size && buf[offset] != stx) offset++
+                if (offset >= buf.size) { offset = buf.size; break }
+                val remaining = buf.size - offset
+
+                // need at least a minimal v2 frame to decide anything
+                if (remaining < 12) break // wait for more data
+
+                val payloadLen = buf[offset + 1].toInt() and 0xFF
+                val totalLen = 10 + payloadLen + 2
+                if (remaining < totalLen) break // partial frame - wait for the rest
+
+                val message = MavlinkProtocol.parseMavlinkMessage(buf.copyOfRange(offset, buf.size))
+                if (message != null) {
+                    processMavlinkMessage(message)
+                    offset += totalLen
+                } else {
+                    // false STX inside payload data - skip one byte and resync
+                    offset++
                 }
-                if (!found) break
-                continue
             }
 
-            // Process the parsed message
-            processMavlinkMessage(message)
-
-            // Move offset past this message
-            val msgLen = message.payload.size
-            offset += 9 + msgLen + 2 // header(9) + payload + checksum(2)
+            // keep unparsed tail for next chunk; guard against garbage flood
+            if (offset > 0) {
+                val leftover = buf.copyOfRange(offset, buf.size)
+                pending.reset()
+                if (leftover.size <= 4096) {
+                    pending.write(leftover, 0, leftover.size)
+                } else {
+                    Timber.w("Parse buffer overflow (${leftover.size}B) - flushed")
+                }
+            }
         }
     }
 
@@ -134,8 +165,9 @@ class MavlinkFlightRepository(
                 text?.let { processStatustext(it) }
             }
             0 -> processHeartbeat(message)        // HEARTBEAT
-            173 -> processBattery(message)        // BATTERY_STATUS
-            174 -> processRangefinder(message)    // RANGEFINDER
+            1 -> processSysStatus(message)        // SYS_STATUS (ArduPilot battery voltage)
+            147 -> processBattery(message)        // BATTERY_STATUS
+            173 -> processRangefinder(message)    // RANGEFINDER (ArduPilot dialect)
             24 -> processGps(message)             // GPS_RAW_INT
             else -> Timber.v("Unhandled MAVLink message: ${message.msgId}")
         }
@@ -156,44 +188,65 @@ class MavlinkFlightRepository(
     }
 
     private fun processBattery(message: MavlinkMessage) {
-        // BATTERY_STATUS: voltages[0] / 1000.0 -> battery voltage
+        // BATTERY_STATUS: voltages[0] is uint16_t mV at offset 0 (10-bit encoding)
         if (message.payload.size >= 2) {
-            // First 2 bytes are voltages[0] (uint16_t, mV)
             val voltageMv = (message.payload[0].toInt() and 0xFF) or
-                           ((message.payload[1].toInt() and 0xFF) shl 8)
-            val voltage = voltageMv / 1000.0f
-            _flightState.update { current ->
-                current.updateTelemetry(battery = voltage)
+                            ((message.payload[1].toInt() and 0xFF) shl 8)
+            if (voltageMv in 1..0xFFFF && voltageMv != 0xFFFF) {
+                _flightState.update { current ->
+                    current.updateTelemetry(battery = voltageMv / 1000.0f)
+                }
+            }
+        }
+    }
+
+    private fun processSysStatus(message: MavlinkMessage) {
+        // SYS_STATUS: voltage_battery uint16_t mV at offset 14
+        // (after sensors_present/enabled/found u32 x3 + load u16)
+        if (message.payload.size >= 16) {
+            val voltageMv = (message.payload[14].toInt() and 0xFF) or
+                            ((message.payload[15].toInt() and 0xFF) shl 8)
+            if (voltageMv > 0) {
+                _flightState.update { current ->
+                    current.updateTelemetry(battery = voltageMv / 1000.0f)
+                }
             }
         }
     }
 
     private fun processRangefinder(message: MavlinkMessage) {
-        // RANGEFINDER: distance + 0.05 -> altitude (meters, rounded to 4 decimals)
+        // RANGEFINDER (ArduPilot): distance float @0, voltage uint16 @4
+        // altitude = distance + 0.05 (matches original Python code)
         if (message.payload.size >= 4) {
-            // distance is float at offset 0 (assuming standard MAVLink layout)
             val distanceBytes = message.payload.copyOfRange(0, 4)
-            val distance = java.nio.ByteBuffer.wrap(distanceBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).float
-            val altitude = ((distance + 0.05f) * 10000f).roundToInt() / 10000.0f
-            _flightState.update { current ->
-                current.updateTelemetry(altitude = altitude)
+            val distance = java.nio.ByteBuffer.wrap(distanceBytes)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN).float
+            if (distance > -1f && distance < 1000f) { // sanity check against garbage
+                val altitude = ((distance + 0.05f) * 10000f).roundToInt() / 10000.0f
+                _flightState.update { current ->
+                    current.updateTelemetry(altitude = altitude)
+                }
             }
         }
     }
 
     private fun processGps(message: MavlinkMessage) {
-        // GPS_RAW_INT: eph/100.0 -> hdop, satellites_visible -> satellites
-        if (message.payload.size >= 22) {
-            // eph is uint16_t at offset 18 (after time_usec, lat, lon, alt)
-            val eph = (message.payload[18].toInt() and 0xFF) or
-                      ((message.payload[19].toInt() and 0xFF) shl 8)
+        // GPS_RAW_INT wire layout:
+        // time_usec(8) fix_type(1) lat(4) lon(4) alt(4) eph(2) epv(2) vel(2) cog(2) satellites_visible(1)
+        // -> eph @21, satellites_visible @29
+        if (message.payload.size >= 30) {
+            val eph = (message.payload[21].toInt() and 0xFF) or
+                      ((message.payload[22].toInt() and 0xFF) shl 8)
             val hdop = eph / 100.0f
 
-            // satellites_visible is uint8_t at offset 21
-            val satellites = message.payload[21].toInt() and 0xFF
+            val satellites = message.payload[29].toInt() and 0xFF
+            val fixType = message.payload[8].toInt() and 0xFF
 
             _flightState.update { current ->
-                current.updateTelemetry(hdop = hdop, satellites = satellites)
+                current.updateTelemetry(
+                    hdop = hdop,
+                    satellites = if (fixType > 0) satellites else 0
+                )
             }
         }
     }
@@ -203,7 +256,15 @@ class MavlinkFlightRepository(
             while (true) {
                 delay(1000)
                 _flightState.update { current ->
-                    if (current.isHeartbeatTimeout() && current.connectionState.isConnected()) {
+                    // Only devices that HAVE streamed a heartbeat before can be
+                    // declared dead by silence (e.g. the custom STATUSTEXT FC).
+                    // Devices like SIYI that never send heartbeats must stay
+                    // "Connected" as long as the Bluetooth socket is alive -
+                    // socket loss is reported by the service itself.
+                    if (current.connectionState.isConnected() &&
+                        current.lastHeartbeat > 0 &&
+                        current.isHeartbeatTimeout()
+                    ) {
                         Timber.w("Heartbeat timeout - marking disconnected")
                         current.copy(connectionState = com.dronegcs.app.domain.model.ConnectionState.Disconnected("Heartbeat timeout"))
                     } else {

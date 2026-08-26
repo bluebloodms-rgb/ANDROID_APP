@@ -13,6 +13,9 @@ object MavlinkProtocol {
     // MAVLink v2 constants
     const val MAVLINK_STX = 0xFD
     const val MSG_ID_STATUSTEXT = 253
+    private const val INCOMPAT_FLAG_SIGNED = 0x01
+    private const val FRAME_HEADER_LEN = 10 // STX..msgid(3)
+    private const val FRAME_CRC_LEN = 2
     private const val MAV_SEVERITY_INFO = 6
     private const val MAX_STATUSTEXT_LENGTH = 50
 
@@ -28,27 +31,26 @@ object MavlinkProtocol {
         val truncatedText = truncateUtf8(text, MAX_STATUSTEXT_LENGTH)
         val textBytes = truncatedText.toByteArray(charset = java.nio.charset.StandardCharsets.UTF_8)
 
-        // MAVLink v2 frame: STX + len + seq + sysid + compid + msgid + payload + checksum
-        // For STATUSTEXT: payload = severity (1 byte) + text (up to 50 bytes) + padding
+        // Standard MAVLink v2 STATUSTEXT payload: severity (1 byte) + char[50]
         val payload = ByteArray(1 + MAX_STATUSTEXT_LENGTH)
         payload[0] = severity.toByte()
         textBytes.copyInto(payload, 1, 0, textBytes.size.coerceAtMost(MAX_STATUSTEXT_LENGTH))
 
-        // Build frame
         val seq = nextSequence()
         val sysId = 1  // Ground station
         val compId = 1 // Mission planner
 
-        // Calculate message length
+        // MAVLink v2 frame:
+        // STX(1) len(1) incompat(1) compat(1) seq(1) sysid(1) compid(1) msgid(3)
+        // payload(len) checksum(2)
         val msgLen = payload.size
-
-        // Start building frame
-        val frame = ByteArray(10 + msgLen + 2) // header(6) + payload + checksum(2) + signature(0 for v2 without signing)
+        val frame = ByteArray(FRAME_HEADER_LEN + msgLen + FRAME_CRC_LEN)
         var idx = 0
 
         frame[idx++] = MAVLINK_STX.toByte()
-        frame[idx++] = (msgLen and 0xFF).toByte()
-        frame[idx++] = ((msgLen shr 8) and 0xFF).toByte()
+        frame[idx++] = (msgLen and 0xFF).toByte()          // single-byte length!
+        frame[idx++] = 0                                    // incompat flags (no signing)
+        frame[idx++] = 0                                    // compat flags
         frame[idx++] = seq.toByte()
         frame[idx++] = sysId.toByte()
         frame[idx++] = compId.toByte()
@@ -62,8 +64,8 @@ object MavlinkProtocol {
         payload.copyInto(frame, idx)
         idx += payload.size
 
-        // CRC (X.25 checksum)
-        val crc = calculateCrc(frame, 0, idx, MSG_ID_STATUSTEXT)
+        // CRC-16/X.25 over len..payload + CRC_EXTRA (standard MAVLink CRC)
+        val crc = calculateCrc(frame, 1, idx, MSG_ID_STATUSTEXT)
         frame[idx++] = (crc and 0xFF).toByte()
         frame[idx++] = ((crc shr 8) and 0xFF).toByte()
 
@@ -122,37 +124,60 @@ object MavlinkProtocol {
      * This is a minimal implementation - for full MAVLink parsing use mavlink-kotlin library
      */
     fun parseMavlinkMessage(buffer: ByteArray): MavlinkMessage? {
-        // Find STX
+        // Never let malformed serial data crash the app
+        return try {
+            parseMavlinkMessageInternal(buffer)
+        } catch (e: Exception) {
+            Timber.w(e, "Malformed MAVLink frame discarded")
+            null
+        }
+    }
+
+    private fun parseMavlinkMessageInternal(buffer: ByteArray): MavlinkMessage? {
+        // Find STX (0xFD, MAVLink v2)
         var startIdx = -1
-        for (i in 0 until buffer.size - 1) {
-            if (buffer[i].toInt() and 0xFF == MAVLINK_STX) {
+        for (i in buffer.indices) {
+            if ((buffer[i].toInt() and 0xFF) == MAVLINK_STX) {
                 startIdx = i
                 break
             }
         }
+        if (startIdx == -1) return null
 
-        if (startIdx == -1 || startIdx + 6 > buffer.size) return null
+        val remaining = buffer.size - startIdx
 
-        val len = (buffer[startIdx + 1].toInt() and 0xFF) or ((buffer[startIdx + 2].toInt() and 0xFF) shl 8)
-        val totalLen = 6 + len + 2 // header + payload + checksum
+        // Standard MAVLink v2 frame:
+        // STX(1) len(1) incompat(1) compat(1) seq(1) sysid(1) compid(1) msgid(3) payload(len) crc(2)
+        if (remaining < FRAME_HEADER_LEN + FRAME_CRC_LEN) return null
 
-        if (startIdx + totalLen > buffer.size) return null
+        val payloadLen = buffer[startIdx + 1].toInt() and 0xFF
+        val incompatFlags = buffer[startIdx + 2].toInt() and 0xFF
 
-        val seq = buffer[startIdx + 3].toInt() and 0xFF
-        val sysId = buffer[startIdx + 4].toInt() and 0xFF
-        val compId = buffer[startIdx + 5].toInt() and 0xFF
+        // Signed payloads are not supported -> skip this frame
+        if (incompatFlags and INCOMPAT_FLAG_SIGNED != 0) {
+            Timber.d("Skipping signed MAVLink frame")
+            return null
+        }
 
-        val msgId = (buffer[startIdx + 6].toInt() and 0xFF) or
-                    ((buffer[startIdx + 7].toInt() and 0xFF) shl 8) or
-                    ((buffer[startIdx + 8].toInt() and 0xFF) shl 16)
+        val totalLen = FRAME_HEADER_LEN + payloadLen + FRAME_CRC_LEN
+        if (remaining < totalLen) return null // partial frame - caller resyncs on next STX
 
-        val payloadStart = startIdx + 9
-        val payload = buffer.copyOfRange(payloadStart, payloadStart + len)
+        val seq = buffer[startIdx + 4].toInt() and 0xFF
+        val sysId = buffer[startIdx + 5].toInt() and 0xFF
+        val compId = buffer[startIdx + 6].toInt() and 0xFF
 
-        val crcReceived = (buffer[payloadStart + len].toInt() and 0xFF) or
-                         ((buffer[payloadStart + len + 1].toInt() and 0xFF) shl 8)
+        val msgId = (buffer[startIdx + 7].toInt() and 0xFF) or
+                    ((buffer[startIdx + 8].toInt() and 0xFF) shl 8) or
+                    ((buffer[startIdx + 9].toInt() and 0xFF) shl 16)
 
-        val crcCalculated = calculateCrc(buffer, startIdx, payloadStart + len, msgId)
+        val payloadStart = startIdx + FRAME_HEADER_LEN
+        val payload = buffer.copyOfRange(payloadStart, payloadStart + payloadLen)
+
+        val crcReceived = (buffer[payloadStart + payloadLen].toInt() and 0xFF) or
+                          ((buffer[payloadStart + payloadLen + 1].toInt() and 0xFF) shl 8)
+
+        // CRC covers len..payload (everything except STX), plus CRC_EXTRA bytes
+        val crcCalculated = calculateCrc(buffer, startIdx + 1, payloadStart + payloadLen, msgId)
 
         if (crcReceived != crcCalculated) {
             Timber.w("CRC mismatch for msgId $msgId")
@@ -186,9 +211,9 @@ object MavlinkProtocol {
             crc = crcXor(crc, data)
         }
 
-        // Add CRC extra
+        // CRC_EXTRA is a SINGLE byte (uint8_t) - official mavlink_checksum() adds it once.
+        // Accumulating a second (high) byte here silently breaks every real-world frame.
         crc = crcXor(crc, crcExtra and 0xFF)
-        crc = crcXor(crc, (crcExtra shr 8) and 0xFF)
 
         return crc
     }
@@ -205,20 +230,7 @@ object MavlinkProtocol {
         return c
     }
 
-    private fun getCrcExtra(msgId: Int): Int {
-        // CRC_EXTRA values for common MAVLink messages
-        return when (msgId) {
-            MSG_ID_STATUSTEXT -> 0x02 // STATUSTEXT
-            0 -> 0x31 // HEARTBEAT
-            1 -> 0x20 // SYS_STATUS
-            24 -> 0x5F // GPS_RAW_INT
-            30 -> 0x2A // ATTITUDE
-            33 -> 0x17 // GLOBAL_POSITION_INT
-            173 -> 0x3E // BATTERY_STATUS
-            174 -> 0x01 // RANGEFINDER
-            else -> 0
-        }
-    }
+    private fun getCrcExtra(msgId: Int): Int = MavlinkCrcExtra.forMessageId(msgId)
 }
 
 /**

@@ -1,6 +1,5 @@
 package com.dronegcs.app.domain.protocol
 
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -10,21 +9,24 @@ import org.junit.Test
 class MavlinkProtocolTest {
 
     @Test
-    fun `encodeStatustext produces valid frame structure`() {
+    fun `encodeStatustext produces valid v2 frame structure`() {
         val frame = MavlinkProtocol.encodeStatustext("HELLO")
 
         assertEquals(MavlinkProtocol.MAVLINK_STX.toByte(), frame[0])
-        // payload = severity(1) + max text length(50)
+        // single-byte payload length: severity(1) + text(50)
         assertEquals(51, frame[1].toInt() and 0xFF)
+        // incompat/compat flags zero (unsigned)
+        assertEquals(0, frame[2].toInt())
+        assertEquals(0, frame[3].toInt())
         // sysId and compId
-        assertEquals(1, frame[4].toInt())
         assertEquals(1, frame[5].toInt())
-        // msgId little endian 24-bit
-        val msgId = (frame[6].toInt() and 0xFF) or
-            ((frame[7].toInt() and 0xFF) shl 8) or
-            ((frame[8].toInt() and 0xFF) shl 16)
+        assertEquals(1, frame[6].toInt())
+        // msgId little endian 24-bit at offset 7
+        val msgId = (frame[7].toInt() and 0xFF) or
+            ((frame[8].toInt() and 0xFF) shl 8) or
+            ((frame[9].toInt() and 0xFF) shl 16)
         assertEquals(253, msgId)
-        // total size: header(9: STX+len(2)+seq+sysid+compid+msgid(3)) + payload(51) + crc(2) + 1 padding byte
+        // total size: header(10) + payload(51) + crc(2)
         assertEquals(63, frame.size)
     }
 
@@ -55,6 +57,16 @@ class MavlinkProtocolTest {
     }
 
     @Test
+    fun `parseMavlinkMessage tolerates trailing garbage bytes`() {
+        val frame = MavlinkProtocol.encodeStatustext("X") + byteArrayOf(0x55, 0x66)
+
+        val message = MavlinkProtocol.parseMavlinkMessage(frame)
+
+        assertNotNull(message)
+        assertEquals(253, message!!.msgId)
+    }
+
+    @Test
     fun `parseMavlinkMessage rejects corrupted crc`() {
         val frame = MavlinkProtocol.encodeStatustext("CRC")
         frame[frame.size - 2] = (frame[frame.size - 2] + 1).toByte()
@@ -63,9 +75,30 @@ class MavlinkProtocolTest {
     }
 
     @Test
+    fun `parseMavlinkMessage never crashes on random bytes`() {
+        val rng = java.util.Random(42)
+        repeat(1000) {
+            val bytes = ByteArray(rng.nextInt(80))
+            rng.nextBytes(bytes)
+            // must not throw - may return a message or null
+            MavlinkProtocol.parseMavlinkMessage(bytes)
+        }
+    }
+
+    @Test
     fun `parseMavlinkMessage returns null for empty or short buffer`() {
         assertNull(MavlinkProtocol.parseMavlinkMessage(ByteArray(0)))
         assertNull(MavlinkProtocol.parseMavlinkMessage(byteArrayOf(0xFD.toByte(), 0x01)))
+    }
+
+    @Test
+    fun `parseMavlinkMessage handles partial frames without crash`() {
+        val frame = MavlinkProtocol.encodeStatustext("PARTIAL")
+
+        // every possible truncation must be safe
+        for (cut in 1 until frame.size) {
+            MavlinkProtocol.parseMavlinkMessage(frame.copyOfRange(0, cut))
+        }
     }
 
     @Test
@@ -115,7 +148,7 @@ class MavlinkProtocolTest {
         val sequences = mutableListOf<Int>()
         for (i in 0 until 257) {
             val frame = MavlinkProtocol.encodeStatustext("s")
-            sequences.add(frame[3].toInt() and 0xFF)
+            sequences.add(frame[4].toInt() and 0xFF)
         }
         // increments wrap modulo 256: sequence #257 equals sequence #1
         assertEquals(sequences[0], sequences[256])
