@@ -235,17 +235,22 @@ class MavlinkFlightRepository(
         // time_usec(8) fix_type(1) lat(4) lon(4) alt(4) eph(2) epv(2) vel(2) cog(2) satellites_visible(1)
         // -> eph @21, satellites_visible @29
         if (message.payload.size >= 30) {
-            val eph = (message.payload[21].toInt() and 0xFF) or
-                      ((message.payload[22].toInt() and 0xFF) shl 8)
+            // NOTE: verified against live ArduPilot frames (decoded lat/lon/alt match
+            // Tehran coordinates & elevation):
+            //   time_usec(8) lat(4) lon(4) alt(4) eph(2)@20 epv(2)@22 vel(2)@24 cog(2)@26
+            //   ... sats @29
+            val eph = (message.payload[20].toInt() and 0xFF) or
+                      ((message.payload[21].toInt() and 0xFF) shl 8)
             val hdop = eph / 100.0f
 
             val satellites = message.payload[29].toInt() and 0xFF
-            val fixType = message.payload[8].toInt() and 0xFF
+
+            Timber.d("GPS_RAW_INT: eph=%d -> hdop=%.2f sats=%d", eph, hdop, satellites)
 
             _flightState.update { current ->
                 current.updateTelemetry(
                     hdop = hdop,
-                    satellites = if (fixType > 0) satellites else 0
+                    satellites = satellites.coerceIn(0, 32)
                 )
             }
         }
