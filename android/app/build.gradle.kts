@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.dronegcs.app"
     compileSdk = 34
+    buildToolsVersion = "34.0.3"
 
     defaultConfig {
         applicationId = "com.dronegcs.app"
@@ -43,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
@@ -56,7 +58,7 @@ android {
 
 dependencies {
     // Jetpack Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -70,6 +72,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.50")
@@ -77,7 +81,9 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-rx3:1.7.1")
 
     // Timber logging
     implementation("com.jakewharton.timber:timber:5.0.1")
@@ -90,16 +96,20 @@ dependencies {
     // Media3 (ExoPlayer + RTSP)
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("androidx.media3:media3-rtsp:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.2.1")
 
-    // DataStore Preferences
+    // DataStore Preferences + RxJava3
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-preferences-rxjava3:1.0.0")
+    implementation("androidx.datastore:datastore-rxjava3:1.0.0")
+    implementation("io.reactivex.rxjava3:rxjava:3.1.6")
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
 
     // Navigation Compose
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.7.6")
 
     // Accompanist Permissions
-    implementation("com.google.accompanist:accompanist-permissions:0.33.2-alpha")
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
