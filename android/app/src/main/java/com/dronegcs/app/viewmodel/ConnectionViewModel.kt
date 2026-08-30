@@ -51,6 +51,10 @@ class ConnectionViewModel @Inject constructor(
     private val _connectedDevice = MutableStateFlow<BluetoothDevice?>(null)
     val connectedDevice = _connectedDevice.asStateFlow()
 
+    // Last device we attempted to connect to; used by auto-reconnect when a
+    // connection attempt fails before ever succeeding
+    private val _lastAttemptedDevice = MutableStateFlow<BluetoothDevice?>(null)
+
     // Auto-reconnect state
     private var autoReconnectJob: kotlinx.coroutines.Job? = null
     private var isManualDisconnect = false
@@ -60,6 +64,7 @@ class ConnectionViewModel @Inject constructor(
     init {
         observeConnectionState()
         observeAutoReconnectSetting()
+        autoConnectOnLaunch()
     }
 
     /** True if device has a Bluetooth adapter and it is currently enabled. */
@@ -111,6 +116,8 @@ class ConnectionViewModel @Inject constructor(
                                 backoffIndex = 0
                                 cancelAutoReconnect()
                                 _connectedDevice.value = findDeviceByAddress(state.deviceAddress)
+                                    ?: _lastAttemptedDevice.value
+                                persistLastDevice(state.deviceAddress, state.deviceName)
                                 ConnectionUiState.Connected(state.deviceName, state.deviceAddress)
                             }
                             is ConnectionState.Error -> {
@@ -144,11 +151,68 @@ class ConnectionViewModel @Inject constructor(
         return _availableDevices.value.find { it.address == address }
     }
 
+    /**
+     * Windows parity: on app start, silently reconnect to the last-used device.
+     * Skips when no device was saved, Bluetooth is off, auto-reconnect is
+     * disabled in Settings, or the saved device is no longer bonded.
+     */
+    private fun autoConnectOnLaunch() {
+        viewModelScope.launch {
+            try {
+                delay(600) // let the first frame compose before starting the service
+                val enabled = settingsRepository.autoReconnectEnabled.first()
+                if (!enabled) {
+                    Timber.d("Auto-connect on launch skipped: disabled in settings")
+                    return@launch
+                }
+                val address = settingsRepository.getBtDeviceAddress()
+                if (address.isNullOrBlank()) {
+                    Timber.d("Auto-connect on launch skipped: no saved device")
+                    return@launch
+                }
+                if (!isBluetoothReady()) {
+                    Timber.w("Auto-connect on launch skipped: Bluetooth adapter off")
+                    return@launch
+                }
+                val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val device = try {
+                    manager.adapter?.bondedDevices?.firstOrNull { it.address == address }
+                } catch (e: SecurityException) {
+                    Timber.w(e, "Auto-connect on launch: missing BLUETOOTH_CONNECT permission")
+                    null
+                }
+                if (device == null) {
+                    Timber.w("Auto-connect on launch skipped: saved device $address not bonded")
+                    return@launch
+                }
+                Timber.i("Auto-connect on launch: connecting to ${device.name ?: "?"} ($address)")
+                connect(device)
+            } catch (e: Exception) {
+                Timber.w(e, "Auto-connect on launch failed")
+            }
+        }
+    }
+
+    /** Remembers the last successfully-connected device so it can be auto-connected on next launch. */
+    private fun persistLastDevice(address: String, name: String?) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setBtDeviceAddress(address)
+                settingsRepository.setBtDeviceName(name)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to persist last device")
+            }
+        }
+    }
+
     private fun scheduleAutoReconnect() {
         cancelAutoReconnect()
 
-        // Get the last connected device or first available
-        val device = _connectedDevice.value ?: _availableDevices.value.firstOrNull()
+        // Retry the device we last connected to (or just attempted); only fall
+        // back to the first bonded device if neither is known
+        val device = _connectedDevice.value
+            ?: _lastAttemptedDevice.value
+            ?: _availableDevices.value.firstOrNull()
         device?.let {
             autoReconnectJob = viewModelScope.launch {
                 var currentDelay = 0L
@@ -191,6 +255,7 @@ class ConnectionViewModel @Inject constructor(
     fun connect(device: BluetoothDevice) {
         isManualDisconnect = false
         cancelAutoReconnect()
+        _lastAttemptedDevice.value = device
         _uiState.value = ConnectionUiState.Connecting(device.name)
         val intent = android.content.Intent(context, BluetoothSppService::class.java).apply {
             action = BluetoothSppService.ACTION_CONNECT

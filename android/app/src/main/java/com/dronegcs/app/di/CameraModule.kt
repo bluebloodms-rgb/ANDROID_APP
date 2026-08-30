@@ -29,9 +29,10 @@ object CameraModule {
     @Provides
     @Singleton
     fun provideRtspVideoRepository(
-        @ApplicationContext context: Context,
-        scope: CoroutineScope
+        @ApplicationContext context: Context
     ): RtspVideoRepository {
-        return RtspVideoRepository(context, scope)
+        // NOTE: no background scope — ExoPlayer/PlayerView are main-thread only
+        // and RtspVideoRepository manages its own main-thread coroutine scope.
+        return RtspVideoRepository(context)
     }
 }

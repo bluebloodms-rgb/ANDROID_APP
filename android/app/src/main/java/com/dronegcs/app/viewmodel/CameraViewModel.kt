@@ -5,6 +5,7 @@ import androidx.camera.core.CameraSelector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dronegcs.app.data.camera.CameraXPreviewRepository
+import com.dronegcs.app.data.datastore.SettingsRepository
 import com.dronegcs.app.data.video.RtspVideoRepository
 import com.dronegcs.app.domain.model.VideoSource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -24,7 +26,8 @@ import javax.inject.Inject
 class CameraViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cameraXRepository: CameraXPreviewRepository,
-    private val rtspRepository: RtspVideoRepository
+    private val rtspRepository: RtspVideoRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     // Current video source
@@ -75,12 +78,55 @@ class CameraViewModel @Inject constructor(
         when (source) {
             is VideoSource.PhoneCamera -> {
                 _cameraFacing.value = source.facing
+                persistVideoSource(settingsRepository.VIDEO_SOURCE_CAMERA, null, source.facing)
                 // Note: bindToPreviewView called from UI with lifecycle
             }
             is VideoSource.RtspStream -> {
+                _defaultRtspUrl.value = source.url
+                persistVideoSource(settingsRepository.VIDEO_SOURCE_RTSP, source.url, null)
                 rtspRepository.play(source.url)
             }
             VideoSource.None -> {}
+        }
+    }
+
+    /**
+     * Restores the last-used video source on app launch (Windows parity: the
+     * desktop GCS remembers the video source between runs). Falls back to the
+     * saved default camera facing when the saved mode is camera/invalid.
+     */
+    fun restoreSavedVideoSource() {
+        viewModelScope.launch {
+            try {
+                val mode = settingsRepository.getVideoSourceMode()
+                if (mode == settingsRepository.VIDEO_SOURCE_RTSP) {
+                    val url = settingsRepository.getRtspUrl()
+                    if (!url.isNullOrBlank()) {
+                        Timber.i("Restoring saved video source: RTSP $url")
+                        setVideoSource(VideoSource.RtspStream(url))
+                        return@launch
+                    }
+                    Timber.w("Saved video source is RTSP but URL is empty; falling back to camera")
+                }
+                val facing = settingsRepository.getDefaultCameraFacing()
+                Timber.i("Restoring saved video source: phone camera (facing=$facing)")
+                setVideoSource(VideoSource.PhoneCamera(facing = facing))
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to restore saved video source; using default camera")
+                setVideoSource(VideoSource.PhoneCamera())
+            }
+        }
+    }
+
+    private fun persistVideoSource(mode: String, rtspUrl: String?, facing: Int?) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setVideoSourceMode(mode)
+                if (rtspUrl != null) settingsRepository.setRtspUrl(rtspUrl)
+                if (facing != null) settingsRepository.setDefaultCameraFacing(facing)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to persist video source")
+            }
         }
     }
 

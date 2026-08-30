@@ -29,6 +29,7 @@ class SettingsRepository @Inject constructor(
     private val btDeviceNameKey = stringPreferencesKey("bt_device_name")
     private val baudRateKey = intPreferencesKey("baud_rate")
     private val rtspUrlKey = stringPreferencesKey("rtsp_url")
+    private val videoSourceModeKey = stringPreferencesKey("video_source_mode")
     private val defaultCameraFacingKey = intPreferencesKey("default_camera_facing")
     private val defaultSpeedKey = intPreferencesKey("default_speed")
     private val defaultTargetClassKey = intPreferencesKey("default_target_class")
@@ -40,6 +41,10 @@ class SettingsRepository @Inject constructor(
     private val DEFAULT_CAMERA_FACING = CameraSelector.LENS_FACING_BACK
     private val DEFAULT_SPEED = 19
     private val DEFAULT_TARGET_CLASS = 0 // Person
+
+    // Video source modes
+    val VIDEO_SOURCE_CAMERA = "camera"
+    val VIDEO_SOURCE_RTSP = "rtsp"
 
     // Auto-reconnect enabled
     val autoReconnectEnabled: Flow<Boolean> = dataStore.data
@@ -85,6 +90,14 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             if (url != null) prefs[rtspUrlKey] = url else prefs.remove(rtspUrlKey)
         }
+    }
+
+    // Video source mode: which source to restore on launch ("camera" or "rtsp")
+    suspend fun getVideoSourceMode(): String =
+        dataStore.data.first()[videoSourceModeKey] ?: VIDEO_SOURCE_CAMERA
+
+    suspend fun setVideoSourceMode(mode: String) {
+        dataStore.edit { it[videoSourceModeKey] = mode }
     }
 
     // Default camera facing

@@ -65,7 +65,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.domain.model.ConnectionUiState
-import com.dronegcs.app.domain.model.VideoSource
 import com.dronegcs.app.ui.components.controls.BottomControlPanel
 import com.dronegcs.app.ui.components.controls.ControlDock
 import com.dronegcs.app.ui.components.controls.PitchSlider
@@ -124,7 +123,7 @@ fun MainScreen(
     }
 
     LaunchedEffect(Unit) {
-        cameraViewModel.setVideoSource(VideoSource.PhoneCamera())
+        cameraViewModel.restoreSavedVideoSource()
         val wanted = mutableListOf<String>()
         if (!cameraGranted) wanted += Manifest.permission.CAMERA
         if (Build.VERSION.SDK_INT >= 31 && !btGranted) {
@@ -311,7 +310,6 @@ fun MainScreen(
     if (showConnectDialog) {
         BluetoothConnectDialog(
             connectionViewModel = connectionViewModel,
-            bluetoothReady = btGranted && connectionViewModel.isBluetoothReady(),
             onDismiss = { showConnectDialog = false }
         )
     }
@@ -349,11 +347,13 @@ private fun bluetoothPermissionGranted(context: android.content.Context): Boolea
 @Composable
 private fun BluetoothConnectDialog(
     connectionViewModel: ConnectionViewModel,
-    bluetoothReady: Boolean,
     onDismiss: () -> Unit
 ) {
     val devices by connectionViewModel.availableDevices.collectAsStateWithLifecycle()
     val uiState by connectionViewModel.uiState.collectAsStateWithLifecycle()
+    // Re-read adapter state on every recomposition so toggling Bluetooth while
+    // the dialog is open is picked up (Refresh also triggers this via devices).
+    val bluetoothReady = connectionViewModel.isBluetoothReady()
 
     LaunchedEffect(Unit) { connectionViewModel.refreshBondedDevices() }
 

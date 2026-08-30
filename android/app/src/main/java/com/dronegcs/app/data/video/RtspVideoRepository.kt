@@ -8,24 +8,34 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
-import com.dronegcs.app.domain.model.VideoSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * Repository for RTSP/UDP video streaming using ExoPlayer (Media3)
+ * Repository for RTSP/UDP video streaming using ExoPlayer (Media3).
+ *
+ * IMPORTANT: ExoPlayer and PlayerView must only be accessed on the MAIN
+ * thread (Media3 asserts this), so all player lifecycle work runs on
+ * [mainScope] — not on a background dispatcher.
  */
 class RtspVideoRepository(
-    private val context: Context,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private val context: Context
 ) {
+
+    // Media3 requires main-thread access; ExoPlayer internally offloads work.
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var player: ExoPlayer? = null
     private var playerView: PlayerView? = null
+
+    // URL requested via play() before the player/view was ready (e.g. when the
+    // source is restored on app launch before the UI binds the PlayerView).
+    private var pendingUrl: String? = null
 
     // State
     private val _isPlaying = MutableStateFlow(false)
@@ -39,69 +49,86 @@ class RtspVideoRepository(
 
     fun bindToPlayerView(playerView: PlayerView) {
         this.playerView = playerView
-        initPlayer()
-    }
-
-    private fun initPlayer() {
-        scope.launch {
-            val exoPlayer = ExoPlayer.Builder(context)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(context))
-                .build()
-
-            exoPlayer.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
-                    _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
-                }
-
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Timber.e(error, "ExoPlayer error")
-                    _error.value = error.message
-                    _isPlaying.value = false
-                }
-            })
-
-            player = exoPlayer
-            playerView?.player = exoPlayer
-            Timber.d("ExoPlayer initialized for RTSP")
+        mainScope.launch {
+            ensurePlayer()
+            playerView.player = player
+            // If play() ran before the view was bound (launch restore path),
+            // (re)start the requested stream now that the player exists.
+            pendingUrl?.let { url -> startPlayback(url) }
         }
     }
 
-    fun play(rtspUrl: String) {
-        scope.launch {
-            _error.value = null
-            _buffering.value = true
+    private fun ensurePlayer() {
+        if (player != null) return
+        val exoPlayer = ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context))
+            .build()
 
-            val mediaItem = MediaItem.fromUri(rtspUrl)
-            player?.setMediaItem(mediaItem)
-            player?.prepare()
-            player?.playWhenReady = true
-            Timber.d("Starting RTSP stream: $rtspUrl")
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
+                _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                Timber.e(error, "ExoPlayer error")
+                _error.value = error.message
+                _isPlaying.value = false
+            }
+        })
+
+        player = exoPlayer
+        Timber.d("ExoPlayer initialized for RTSP")
+    }
+
+    private fun startPlayback(rtspUrl: String) {
+        val exoPlayer = player ?: return
+        val mediaItem = MediaItem.fromUri(rtspUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
+        _buffering.value = true
+        _error.value = null
+        Timber.d("Starting RTSP stream: $rtspUrl")
+    }
+
+    fun play(rtspUrl: String) {
+        pendingUrl = rtspUrl
+        mainScope.launch {
+            ensurePlayer()
+            startPlayback(rtspUrl)
+            pendingUrl = null
         }
     }
 
     fun pause() {
-        player?.playWhenReady = false
+        mainScope.launch { player?.playWhenReady = false }
         _isPlaying.value = false
     }
 
     fun stop() {
-        player?.stop()
+        pendingUrl = null
+        mainScope.launch {
+            player?.stop()
+        }
         _isPlaying.value = false
         _buffering.value = false
     }
 
     fun release() {
-        player?.release()
-        player = null
-        playerView?.player = null
-        playerView = null
+        pendingUrl = null
+        mainScope.launch {
+            player?.release()
+            player = null
+            playerView?.player = null
+            playerView = null
+        }
         _isPlaying.value = false
         _buffering.value = false
     }
 
     fun setSurface(surface: Surface?) {
-        player?.setVideoSurface(surface)
+        mainScope.launch { player?.setVideoSurface(surface) }
     }
 
     fun getCurrentPosition(): Long {

@@ -2,6 +2,8 @@ package com.dronegcs.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +71,10 @@ fun SettingsScreen(
 
     val devices by connectionViewModel.availableDevices.collectAsStateWithLifecycle()
 
+    // This screen owns its own ConnectionViewModel instance (per nav entry),
+    // so refresh the bonded-device list when Settings is opened.
+    LaunchedEffect(Unit) { connectionViewModel.refreshBondedDevices() }
+
     Scaffold(
         topBar = {
             androidx.compose.material3.TopAppBar(
@@ -87,6 +94,7 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -122,7 +130,12 @@ fun SettingsScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
                                     .clickable {
-                                        settingsViewModel.updateBtDevice(device.address, device.name)
+                                        if (btDeviceAddress == device.address) {
+                                            // Tapping the already-selected device clears the saved selection
+                                            settingsViewModel.updateBtDevice(null, null)
+                                        } else {
+                                            settingsViewModel.updateBtDevice(device.address, device.name)
+                                        }
                                     },
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
