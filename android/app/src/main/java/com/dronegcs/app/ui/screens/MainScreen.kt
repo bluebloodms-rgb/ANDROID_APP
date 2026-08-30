@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,18 +27,22 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,12 +63,13 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.domain.model.ConnectionUiState
 import com.dronegcs.app.domain.model.VideoSource
 import com.dronegcs.app.ui.components.controls.BottomControlPanel
-import com.dronegcs.app.ui.components.controls.Direction
-import com.dronegcs.app.ui.components.controls.DirectionalPad
+import com.dronegcs.app.ui.components.controls.ControlDock
 import com.dronegcs.app.ui.components.controls.PitchSlider
+import com.dronegcs.app.ui.components.controls.ZoomPill
 import com.dronegcs.app.ui.components.hud.CrosshairOverlay
 import com.dronegcs.app.ui.components.hud.TapReticle
 import com.dronegcs.app.ui.components.hud.TopBar
@@ -70,6 +78,7 @@ import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 import com.dronegcs.app.viewmodel.TelemetryViewModel
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -81,6 +90,7 @@ import kotlin.math.roundToInt
  *   - Tap on video -> Pos:x,y (scaled to 1280x720) + reticle
  *   - Settings & camera-switch shortcuts
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     connectionViewModel: ConnectionViewModel = viewModel(),
@@ -137,6 +147,13 @@ fun MainScreen(
     var zoomValue by remember { mutableStateOf(flightState.zoom ?: 1f) }
     LaunchedEffect(flightState.zoom) { flightState.zoom?.let { zoomValue = it } }
 
+    // Mobile-first collapsible panels
+    var showPitchPanel by remember { mutableStateOf(false) }
+    var showControlSheet by remember { mutableStateOf(false) }
+    var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
+    var lastSentPitch by remember { mutableStateOf(0f) }
+    LaunchedEffect(flightState.pitch) { flightState.pitch?.let { displayPitch = it } }
+
     var tapPosition by remember { mutableStateOf<Offset?>(null) }
     var surfaceSize by remember { mutableStateOf(IntSize.Zero) }
 
@@ -147,13 +164,24 @@ fun MainScreen(
         }
     }
 
-    fun adjustZoom(dir: Direction) {
-        val step = 1f
-        zoomValue = when (dir) {
-            Direction.UP, Direction.RIGHT -> (zoomValue + step).coerceAtMost(10f)
-            Direction.DOWN, Direction.LEFT -> (zoomValue - step).coerceAtLeast(1f)
-        }
+    fun changeZoom(delta: Float) {
+        zoomValue = (zoomValue + delta).coerceIn(1f, 10f)
         connectionViewModel.sendZoom(zoomValue)
+    }
+
+    fun resetZoom() {
+        zoomValue = 1f
+        connectionViewModel.sendZoom(1f)
+    }
+
+    fun onPitchSliderChange(value: Float) {
+        displayPitch = value
+        // Throttle: only send when the value moved by >= 1° since the last send.
+        // Sends are safe no-ops without a link, so no isConnected gate here.
+        if (abs(value - lastSentPitch) >= 1f) {
+            lastSentPitch = value
+            connectionViewModel.sendPitch(value)
+        }
     }
 
     val onVideoTap: (Float, Float) -> Unit = { x, y ->
@@ -188,59 +216,76 @@ fun MainScreen(
                 connectionViewModel.refreshBondedDevices()
                 showConnectDialog = true
             },
-            onDisconnectClick = { connectionViewModel.disconnect() }
+            onDisconnectClick = { connectionViewModel.disconnect() },
+            onSettingsClick = onOpenSettings,
+            onSwitchCameraClick = { cameraViewModel.switchCamera() }
         )
 
-        // Settings + camera-switch shortcuts (top-right, under the telemetry bar)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 60.dp, end = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OverlayIconButton(Icons.Default.Settings, "Settings", onOpenSettings)
-            OverlayIconButton(Icons.Default.Cameraswitch, "Switch camera") { cameraViewModel.switchCamera() }
-        }
-
-        // Left: pitch/steer slider
-        PitchSlider(
+        // Left edge handle: toggle the collapsible pitch slider
+        Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 6.dp)
-                .width(56.dp)
-                .fillMaxHeight(0.6f),
-            pitch = flightState.pitch ?: 0f,
-            onPitchChange = { connectionViewModel.sendPitch(it) },
-            enabled = isConnected
-        )
+                .background(
+                    Color(0xAA000000),
+                    RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 0.dp)
+                )
+                .clickable { showPitchPanel = !showPitchPanel }
+                .padding(vertical = 14.dp, horizontal = 2.dp)
+        ) {
+            Icon(
+                imageVector = if (showPitchPanel) Icons.Default.ChevronLeft else Icons.Default.ChevronRight,
+                contentDescription = "Toggle pitch slider",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+        }
 
-        // Right: zoom D-pad
-        DirectionalPad(
+        AnimatedVisibility(
+            visible = showPitchPanel,
+            enter = slideInHorizontally(initialOffsetX = { -it }),
+            exit = slideOutHorizontally(targetOffsetX = { -it }),
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 4.dp)
-                .width(200.dp)
-                .height(200.dp),
+                .align(Alignment.CenterStart)
+                .padding(start = 34.dp)
+        ) {
+            PitchSlider(
+                modifier = Modifier
+                    .width(56.dp)
+                    .fillMaxHeight(0.6f),
+                pitch = displayPitch,
+                onPitchChange = { onPitchSliderChange(it) },
+                enabled = true  // offline-safe: sends are no-ops without a link
+            )
+        }
+
+        // Right edge: compact zoom pill (replaces the big D-pad).
+        // Enabled even when disconnected: commands are safe no-ops, so the
+        // control can be debugged offline before the hardware test.
+        ZoomPill(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 8.dp, bottom = 84.dp),
             zoom = zoomValue,
-            onDirectionClick = { dir -> adjustZoom(dir) },
-            onCenterClick = {
-                zoomValue = 1f
-                connectionViewModel.sendZoom(1f)
-            },
-            enabled = isConnected
+            enabled = true,
+            onZoomIn = { changeZoom(1f) },
+            onZoomOut = { changeZoom(-1f) },
+            onReset = { resetZoom() }
         )
 
-        // Bottom: full control panel
-        BottomControlPanel(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(238.dp),
-            connectionViewModel = connectionViewModel,
-            flightState = flightState,
-            isConnected = isConnected
+        // Bottom: slim control dock (full panel lives in the bottom sheet)
+        ControlDock(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            isConnected = isConnected,
+            modeName = flightState.modeName,
+            onStartClick = { connectionViewModel.sendStart(null) },
+            onCancelClick = { connectionViewModel.sendCancel() },
+            onModeClick = {
+                connectionViewModel.sendMode(
+                    if (flightState.md == 1) Command.SetMode.Mode.AUTO
+                    else Command.SetMode.Mode.MANUAL
+                )
+            },
+            onExpandClick = { showControlSheet = true }
         )
 
         if (isConnecting) {
@@ -270,22 +315,24 @@ fun MainScreen(
             onDismiss = { showConnectDialog = false }
         )
     }
-}
 
-@Composable
-private fun OverlayIconButton(icon: ImageVector, description: String, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = Color(0xAA000000),
-        modifier = Modifier.size(40.dp)
-    ) {
-        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
-            Icon(
-                imageVector = icon,
-                contentDescription = description,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
-            )
+    if (showControlSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showControlSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp)
+            ) {
+                BottomControlPanel(
+                    connectionViewModel = connectionViewModel,
+                    flightState = flightState,
+                    isConnected = isConnected
+                )
+            }
         }
     }
 }

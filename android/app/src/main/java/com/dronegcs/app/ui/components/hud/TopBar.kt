@@ -10,10 +10,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,7 +44,9 @@ fun TopBar(
     modifier: Modifier = Modifier,
     flightState: FlightState,
     onConnectClick: () -> Unit,
-    onDisconnectClick: () -> Unit
+    onDisconnectClick: () -> Unit,
+    onSettingsClick: () -> Unit = {},
+    onSwitchCameraClick: () -> Unit = {}
 ) {
     val connection = flightState.connectionState
     val isConnected = connection is ConnectionState.Connected
@@ -103,6 +111,23 @@ fun TopBar(
                     },
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
+                )
+            }
+
+            IconButton(onClick = onSwitchCameraClick, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Cameraswitch,
+                    contentDescription = "Switch camera",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
