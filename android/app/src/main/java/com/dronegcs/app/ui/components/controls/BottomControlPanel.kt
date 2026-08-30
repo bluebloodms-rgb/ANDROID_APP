@@ -1,19 +1,19 @@
 package com.dronegcs.app.ui.components.controls
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,190 +30,184 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import com.dronegcs.app.domain.model.Command
+import com.dronegcs.app.domain.model.FlightState
 import com.dronegcs.app.viewmodel.ConnectionViewModel
-import kotlinx.coroutines.launch
 
 /**
- * Bottom control panel with:
- * Row 1: PID Inputs (kp_yaw_2, kp_roll, kp_pitch)
- * Row 2: D-Gains (kd_yaw_1, kd_yaw_2, kd_roll) + Mission (Start, Cancel, Manual, Auto) + Speed (12, 19, 22)
- * Row 3: Limits (limit_yaw_1, limit_yaw_2, limit_roll) + Targets (Person, Car, Balloon, UAV)
+ * Bottom control panel mirroring the Windows ControlBar exactly:
+ *   Row 1: PID inputs YAW1 (y1,d1,l1) + YAW2 (y2,d2,l2) + ROLL (r,dr,lr)
+ *   Row 2: PID inputs THRUST (t,dt,lt) + SERVO (s,ds,ls)
+ *   Row 3: START / CANCEL / MANUAL / AUTO
+ *   Row 4: Speed (12, 19, 22) + Targets (Person, Car, Balloon, UAV)
+ *
+ * START sends "START:TRUE,<key=value,...>" for the filled PID fields and clears them
+ * (identical to the Python ControlBar._get_pid_values behavior).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BottomControlPanel(
     modifier: Modifier = Modifier
         .fillMaxWidth()
-        .height(150.dp),
+        .height(238.dp),
     connectionViewModel: ConnectionViewModel,
-    telemetryViewModel: com.dronegcs.app.viewmodel.TelemetryViewModel,
-    enabled: Boolean = true
+    flightState: FlightState,
+    isConnected: Boolean
 ) {
-    // PID Inputs state
-    var kpYaw2 by remember { mutableStateOf("") }
-    var kpRoll by remember { mutableStateOf("") }
-    var kpPitch by remember { mutableStateOf("") }
+    // ---- PID fields (Python protocol keys) ----
+    var y1 by remember { mutableStateOf("") }  // kp_yaw1
+    var d1 by remember { mutableStateOf("") }  // kd_yaw1
+    var l1 by remember { mutableStateOf("") }  // limit_yaw1
+    var y2 by remember { mutableStateOf("") }  // kp_yaw2
+    var d2 by remember { mutableStateOf("") }  // kd_yaw2
+    var l2 by remember { mutableStateOf("") }  // limit_yaw2
+    var r by remember { mutableStateOf("") }   // kp_roll
+    var dr by remember { mutableStateOf("") }  // kd_roll
+    var lr by remember { mutableStateOf("") }  // limit_roll
+    var t by remember { mutableStateOf("") }   // kp_thrust
+    var dt by remember { mutableStateOf("") }  // kd_thrust
+    var lt by remember { mutableStateOf("") }  // limit_thrust
+    var s by remember { mutableStateOf("") }   // kp_srv
+    var ds by remember { mutableStateOf("") }  // kd_srv
+    var ls by remember { mutableStateOf("") }  // limit_srv
 
-    var kdYaw1 by remember { mutableStateOf("") }
-    var kdYaw2 by remember { mutableStateOf("") }
-    var kdRoll by remember { mutableStateOf("") }
+    fun buildPidStringAndClear(): String {
+        val entries = linkedMapOf(
+            "y1" to y1, "d1" to d1, "l1" to l1,
+            "y2" to y2, "d2" to d2, "l2" to l2,
+            "r" to r, "dr" to dr, "lr" to lr,
+            "t" to t, "dt" to dt, "lt" to lt,
+            "s" to s, "ds" to ds, "ls" to ls
+        )
+        val pid = entries.filterValues { it.isNotBlank() }
+            .map { (k, v) -> "$k=${v.trim()}" }
+            .joinToString(",")
+        y1 = ""; d1 = ""; l1 = ""; y2 = ""; d2 = ""; l2 = ""
+        r = ""; dr = ""; lr = ""; t = ""; dt = ""; lt = ""
+        s = ""; ds = ""; ls = ""
+        return pid
+    }
 
-    var limitYaw1 by remember { mutableStateOf("") }
-    var limitYaw2 by remember { mutableStateOf("") }
-    var limitRoll by remember { mutableStateOf("") }
-
-    val isConnected = enabled
+    val initialized = flightState.initialized
+    val startEnabled = initialized && flightState.op != 2
+    val manualEnabled = initialized && flightState.md != 1
+    val autoEnabled = initialized && flightState.md != 2
 
     Surface(
         modifier = modifier,
-        color = Color(0xCC222222),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        shadowElevation = 8.dp
+        color = Color(0xCC151515),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        shadowElevation = 12.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Row 1: PID Inputs
-            PidInputRow(
-                label = "KP",
-                fields = listOf(
-                    PidField("kp_yaw_2", kpYaw2, { kpYaw2 = it }),
-                    PidField("kp_roll", kpRoll, { kpRoll = it }),
-                    PidField("kp_pitch", kpPitch, { kpPitch = it })
-                )
-            )
-
-            // Row 2: D-Gains + Mission + Speed
+            // Row 1: YAW1, YAW2, ROLL
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // D-Gains
-                PidInputRow(
-                    modifier = Modifier.weight(1f),
-                    label = "KD",
-                    fields = listOf(
-                        PidField("kd_yaw_1", kdYaw1, { kdYaw1 = it }),
-                        PidField("kd_yaw_2", kdYaw2, { kdYaw2 = it }),
-                        PidField("kd_roll", kdRoll, { kdRoll = it })
-                    )
-                )
+                PidGroup("YAW1", Modifier.weight(1f), listOf(
+                    MiniPidFieldData("y1", y1) { y1 = it },
+                    MiniPidFieldData("d1", d1) { d1 = it },
+                    MiniPidFieldData("l1", l1) { l1 = it }
+                ))
+                PidGroup("YAW2", Modifier.weight(1f), listOf(
+                    MiniPidFieldData("y2", y2) { y2 = it },
+                    MiniPidFieldData("d2", d2) { d2 = it },
+                    MiniPidFieldData("l2", l2) { l2 = it }
+                ))
+                PidGroup("ROLL", Modifier.weight(1f), listOf(
+                    MiniPidFieldData("r", r) { r = it },
+                    MiniPidFieldData("dr", dr) { dr = it },
+                    MiniPidFieldData("lr", lr) { lr = it }
+                ))
+            }
 
-                // Mission buttons
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("MISSION", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        MissionButton(
-                            text = "START",
-                            onClick = {
-                                val pidValues = "$kpYaw2,$kpRoll,$kpPitch,$kdYaw1,$kdYaw2,$kdRoll,$limitYaw1,$limitYaw2,$limitRoll"
-                                connectionViewModel.sendStart(pidValues)
-                            },
-                            enabled = isConnected,
-                            isPrimary = true
-                        )
-                        MissionButton(
-                            text = "CANCEL",
-                            onClick = { connectionViewModel.sendCancel() },
-                            enabled = isConnected,
-                            isDestructive = true
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        MissionButton(
-                            text = "MANUAL",
-                            onClick = { connectionViewModel.sendMode(Command.SetMode.Mode.MANUAL) },
-                            enabled = isConnected
-                        )
-                        MissionButton(
-                            text = "AUTO",
-                            onClick = { connectionViewModel.sendMode(Command.SetMode.Mode.AUTO) },
-                            enabled = isConnected
-                        )
-                    }
+            // Row 2: THRUST + SERVO (aligned to the same 1/3 columns)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                PidGroup("THRUST", Modifier.weight(1f), listOf(
+                    MiniPidFieldData("t", t) { t = it },
+                    MiniPidFieldData("dt", dt) { dt = it },
+                    MiniPidFieldData("lt", lt) { lt = it }
+                ))
+                PidGroup("SERVO", Modifier.weight(1f), listOf(
+                    MiniPidFieldData("s", s) { s = it },
+                    MiniPidFieldData("ds", ds) { ds = it },
+                    MiniPidFieldData("ls", ls) { ls = it }
+                ))
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            // Row 3: Mission buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                PanelButton("START", enabled = startEnabled, isPrimary = true) {
+                    val pid = buildPidStringAndClear()
+                    connectionViewModel.sendStart(pid.ifEmpty { null })
                 }
-
-                // Speed buttons
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("SPEED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SpeedButton(text = "12", speed = 12f, onClick = { connectionViewModel.sendSpeed(12f) }, enabled = isConnected)
-                        SpeedButton(text = "19", speed = 19f, onClick = { connectionViewModel.sendSpeed(19f) }, enabled = isConnected)
-                        SpeedButton(text = "22", speed = 22f, onClick = { connectionViewModel.sendSpeed(22f) }, enabled = isConnected)
-                    }
+                PanelButton("CANCEL", enabled = initialized, isDestructive = true) {
+                    connectionViewModel.sendCancel()
+                }
+                PanelButton("MANUAL", enabled = manualEnabled) {
+                    connectionViewModel.sendMode(Command.SetMode.Mode.MANUAL)
+                }
+                PanelButton("AUTO", enabled = autoEnabled) {
+                    connectionViewModel.sendMode(Command.SetMode.Mode.AUTO)
                 }
             }
 
-            // Row 3: Limits + Targets
+            // Row 4: Speed + Targets
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Limits
-                PidInputRow(
-                    modifier = Modifier.weight(1f),
-                    label = "LIMIT",
-                    fields = listOf(
-                        PidField("limit_yaw_1", limitYaw1, { limitYaw1 = it }),
-                        PidField("limit_yaw_2", limitYaw2, { limitYaw2 = it }),
-                        PidField("limit_roll", limitRoll, { limitRoll = it })
-                    )
-                )
-
-                // Target selectors
                 Column(
-                    modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("TARGET", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("SPEED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TargetSelector(
-                            iconRes = R.drawable.ic_person,
-                            label = "Person",
-                            targetClass = Command.SetClass.TargetClass.PERSON,
-                            onClick = { connectionViewModel.sendClass(Command.SetClass.TargetClass.PERSON) },
-                            enabled = isConnected
-                        )
-                        TargetSelector(
-                            iconRes = R.drawable.ic_car,
-                            label = "Car",
-                            targetClass = Command.SetClass.TargetClass.CAR,
-                            onClick = { connectionViewModel.sendClass(Command.SetClass.TargetClass.CAR) },
-                            enabled = isConnected
-                        )
-                        TargetSelector(
-                            iconRes = R.drawable.ic_balloon,
-                            label = "Balloon",
-                            targetClass = Command.SetClass.TargetClass.BALLOON,
-                            onClick = { connectionViewModel.sendClass(Command.SetClass.TargetClass.BALLOON) },
-                            enabled = isConnected
-                        )
-                        TargetSelector(
-                            iconRes = R.drawable.ic_drone,
-                            label = "UAV",
-                            targetClass = Command.SetClass.TargetClass.UAV,
-                            onClick = { connectionViewModel.sendClass(Command.SetClass.TargetClass.UAV) },
-                            enabled = isConnected
-                        )
+                        SpeedButton("12", enabled = initialized && flightState.spd != 12f) { connectionViewModel.sendSpeed(12f) }
+                        SpeedButton("19", enabled = initialized && flightState.spd != 19f) { connectionViewModel.sendSpeed(19f) }
+                        SpeedButton("22", enabled = initialized && flightState.spd != 22f) { connectionViewModel.sendSpeed(22f) }
+                    }
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("TARGET", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TargetIconButton(R.drawable.ic_person, "Person", enabled = initialized && flightState.cls != 0) {
+                            connectionViewModel.sendClass(Command.SetClass.TargetClass.PERSON)
+                        }
+                        TargetIconButton(R.drawable.ic_car, "Car", enabled = initialized && flightState.cls != 2) {
+                            connectionViewModel.sendClass(Command.SetClass.TargetClass.CAR)
+                        }
+                        TargetIconButton(R.drawable.ic_balloon, "Balloon", enabled = initialized && flightState.cls != 3) {
+                            connectionViewModel.sendClass(Command.SetClass.TargetClass.BALLOON)
+                        }
+                        TargetIconButton(R.drawable.ic_drone, "UAV", enabled = initialized && flightState.cls != 4) {
+                            connectionViewModel.sendClass(Command.SetClass.TargetClass.UAV)
+                        }
                     }
                 }
             }
@@ -221,101 +215,105 @@ fun BottomControlPanel(
     }
 }
 
-@Composable
-fun PidInputRow(
-    modifier: Modifier = Modifier.fillMaxWidth(),
-    label: String,
-    fields: List<PidField>
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            fields.forEach { field ->
-                PidInputField(
-                    label = field.label,
-                    value = field.value,
-                    onValueChange = field.onValueChange
-                )
-            }
-        }
-    }
-}
-
-data class PidField(
+private data class MiniPidFieldData(
     val label: String,
     val value: String,
     val onValueChange: (String) -> Unit
 )
 
+@Composable
+private fun PidGroup(
+    label: String,
+    modifier: Modifier = Modifier,
+    fields: List<MiniPidFieldData>
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            fields.forEach { field ->
+                MiniPidField(field.label, field.value, field.onValueChange)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PidInputField(
+private fun MiniPidField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit
 ) {
     TextField(
         value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        onValueChange = { v ->
+            if (v.length <= 6) onValueChange(v.filter { it.isDigit() || it == '.' || it == '-' })
+        },
+        label = { Text(label, fontSize = 6.sp, color = Color.Gray) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = Modifier
-            .width(70.dp)
-            .height(36.dp),
+            .width(33.dp)
+            .height(34.dp),
+        textStyle = MaterialTheme.typography.bodySmall.copy(
+            fontSize = 9.sp,
+            fontFamily = FontFamily.Monospace,
+            color = Color.Black
+        ),
         colors = TextFieldDefaults.textFieldColors(
-            containerColor = Color(0xFFDDDDDD),
+            containerColor = Color(0xFFE8E8E8),
             focusedTextColor = Color.Black,
             unfocusedTextColor = Color.Black,
-            focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            cursorColor = MaterialTheme.colorScheme.primary
-        ),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-            color = Color.Black,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedLabelColor = Color.Gray,
+            unfocusedLabelColor = Color.Gray,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent
         )
     )
 }
 
 @Composable
-fun MissionButton(
+private fun PanelButton(
     text: String,
-    onClick: () -> Unit,
     enabled: Boolean = true,
     isPrimary: Boolean = false,
-    isDestructive: Boolean = false
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
 ) {
     val colors = when {
-        isPrimary -> androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        isPrimary -> ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF2E7D32),
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFF2E7D32).copy(alpha = 0.35f)
         )
-        isDestructive -> androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError,
-            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+        isDestructive -> ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFC62828),
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFFC62828).copy(alpha = 0.35f)
         )
-        else -> androidx.compose.material3.ButtonDefaults.buttonColors(
+        else -> ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         )
     }
-
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .width(60.dp)
+            .width(62.dp)
             .height(32.dp),
         colors = colors,
         shape = RoundedCornerShape(6.dp)
@@ -324,75 +322,73 @@ fun MissionButton(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            fontSize = 10.sp
+            fontSize = 9.sp
         )
     }
 }
 
 @Composable
-fun SpeedButton(
+private fun SpeedButton(
     text: String,
-    speed: Float,
-    onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .width(40.dp)
-            .height(32.dp),
+            .width(34.dp)
+            .height(30.dp),
         shape = RoundedCornerShape(6.dp),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+        colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         )
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            fontSize = 10.sp
+            fontSize = 9.sp
         )
     }
 }
 
 @Composable
-fun TargetSelector(
+private fun TargetIconButton(
     iconRes: Int,
     label: String,
-    targetClass: Command.SetClass.TargetClass,
-    onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(44.dp),
+        modifier = Modifier.size(38.dp),
         shape = RoundedCornerShape(8.dp),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+        colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         )
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = label,
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(18.dp)
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 8.sp,
+                fontSize = 6.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

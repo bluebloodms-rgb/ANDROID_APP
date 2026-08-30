@@ -31,7 +31,11 @@ data class FlightState(
     val satellites: Int? = null,
 
     // Heartbeat tracking
-    val lastHeartbeat: Long = 0
+    val lastHeartbeat: Long = 0,
+
+    // Command tracking
+    val lastCommand: Int = 0,
+    val lastCommandResult: Int = 0
 ) {
     /**
      * Update state from a STATUSTEXT message string
@@ -100,6 +104,13 @@ data class FlightState(
         return (System.currentTimeMillis() - lastHeartbeat) > 5000
     }
 
+    fun updateFromCommandAck(command: Int, result: Int): FlightState {
+        return copy(
+            lastCommand = command,
+            lastCommandResult = result
+        )
+    }
+
     // Convenience getters for UI
     val modeName: String
         get() = when (md) {
@@ -115,5 +126,18 @@ data class FlightState(
             3 -> "Balloon"
             4 -> "UAV"
             else -> "Unknown"
+        }
+
+    val lastCommandResultName: String
+        get() = when (lastCommandResult) {
+            0 -> "ACCEPTED"
+            1 -> "TEMPORARILY_REJECTED"
+            2 -> "DENIED"
+            3 -> "UNSUPPORTED"
+            4 -> "FAILED"
+            5 -> "IN_PROGRESS"
+            6 -> "CANCELLED"
+            7 -> "AUTH_DENIED"
+            else -> "UNKNOWN($lastCommandResult)"
         }
 }

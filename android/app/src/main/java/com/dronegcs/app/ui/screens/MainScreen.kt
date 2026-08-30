@@ -13,19 +13,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,31 +44,49 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dronegcs.app.domain.model.ConnectionUiState
+import com.dronegcs.app.domain.model.VideoSource
+import com.dronegcs.app.ui.components.controls.BottomControlPanel
+import com.dronegcs.app.ui.components.controls.Direction
+import com.dronegcs.app.ui.components.controls.DirectionalPad
+import com.dronegcs.app.ui.components.controls.PitchSlider
 import com.dronegcs.app.ui.components.hud.CrosshairOverlay
+import com.dronegcs.app.ui.components.hud.TapReticle
 import com.dronegcs.app.ui.components.hud.TopBar
 import com.dronegcs.app.ui.components.video.VideoSurface
 import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 import com.dronegcs.app.viewmodel.TelemetryViewModel
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
- * Phase-1 GCS screen: phone camera preview + telemetry bar + START/CANCEL.
- * Flight-controller / gimbal controls are intentionally omitted for now.
+ * Main GCS screen: full-screen video + telemetry + all flight controls.
+ * Mirrors the Windows app once the drone is connected (features available for later debug):
+ *   - Pitch/steer slider (left)
+ *   - Zoom D-pad (right, 1x-10x)
+ *   - Bottom control panel (PID, START/CANCEL, mode, speed, target)
+ *   - Tap on video -> Pos:x,y (scaled to 1280x720) + reticle
+ *   - Settings & camera-switch shortcuts
  */
 @Composable
 fun MainScreen(
     connectionViewModel: ConnectionViewModel = viewModel(),
     telemetryViewModel: TelemetryViewModel = viewModel(),
-    cameraViewModel: CameraViewModel = viewModel()
+    cameraViewModel: CameraViewModel = viewModel(),
+    onOpenSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val flightState by telemetryViewModel.flightState.collectAsStateWithLifecycle()
@@ -88,9 +114,7 @@ fun MainScreen(
     }
 
     LaunchedEffect(Unit) {
-        cameraViewModel.setVideoSource(
-            com.dronegcs.app.domain.model.VideoSource.PhoneCamera()
-        )
+        cameraViewModel.setVideoSource(VideoSource.PhoneCamera())
         val wanted = mutableListOf<String>()
         if (!cameraGranted) wanted += Manifest.permission.CAMERA
         if (Build.VERSION.SDK_INT >= 31 && !btGranted) {
@@ -109,18 +133,53 @@ fun MainScreen(
         }
     }
 
+    // ---------- Local control state ----------
+    var zoomValue by remember { mutableStateOf(flightState.zoom ?: 1f) }
+    LaunchedEffect(flightState.zoom) { flightState.zoom?.let { zoomValue = it } }
+
+    var tapPosition by remember { mutableStateOf<Offset?>(null) }
+    var surfaceSize by remember { mutableStateOf(IntSize.Zero) }
+
+    LaunchedEffect(tapPosition) {
+        if (tapPosition != null) {
+            delay(3000)
+            tapPosition = null
+        }
+    }
+
+    fun adjustZoom(dir: Direction) {
+        val step = 1f
+        zoomValue = when (dir) {
+            Direction.UP, Direction.RIGHT -> (zoomValue + step).coerceAtMost(10f)
+            Direction.DOWN, Direction.LEFT -> (zoomValue - step).coerceAtLeast(1f)
+        }
+        connectionViewModel.sendZoom(zoomValue)
+    }
+
+    val onVideoTap: (Float, Float) -> Unit = { x, y ->
+        val w = surfaceSize.width.coerceAtLeast(1)
+        val h = surfaceSize.height.coerceAtLeast(1)
+        val fx = ((x / w) * 1280f).roundToInt()
+        val fy = ((y / h) * 720f).roundToInt()
+        if (isConnected) connectionViewModel.sendPosition(fx, fy)
+        tapPosition = Offset(x / w, y / h)
+    }
+
     // ---------- Layout ----------
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .onSizeChanged { surfaceSize = it }
     ) {
         VideoSurface(
             cameraViewModel = cameraViewModel,
-            cameraPermissionGranted = cameraGranted
+            cameraPermissionGranted = cameraGranted,
+            onTap = onVideoTap
         )
 
         CrosshairOverlay()
+        TapReticle(positionFraction = tapPosition)
 
         TopBar(
             modifier = Modifier.align(Alignment.TopCenter),
@@ -132,42 +191,64 @@ fun MainScreen(
             onDisconnectClick = { connectionViewModel.disconnect() }
         )
 
-        Row(
+        // Settings + camera-switch shortcuts (top-right, under the telemetry bar)
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 60.dp, end = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OverlayIconButton(Icons.Default.Settings, "Settings", onOpenSettings)
+            OverlayIconButton(Icons.Default.Cameraswitch, "Switch camera") { cameraViewModel.switchCamera() }
+        }
+
+        // Left: pitch/steer slider
+        PitchSlider(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 6.dp)
+                .width(56.dp)
+                .fillMaxHeight(0.6f),
+            pitch = flightState.pitch ?: 0f,
+            onPitchChange = { connectionViewModel.sendPitch(it) },
+            enabled = isConnected
+        )
+
+        // Right: zoom D-pad
+        DirectionalPad(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 4.dp)
+                .width(200.dp)
+                .height(200.dp),
+            zoom = zoomValue,
+            onDirectionClick = { dir -> adjustZoom(dir) },
+            onCenterClick = {
+                zoomValue = 1f
+                connectionViewModel.sendZoom(1f)
+            },
+            enabled = isConnected
+        )
+
+        // Bottom: full control panel
+        BottomControlPanel(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 32.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally)
-        ) {
-            Button(
-                onClick = { connectionViewModel.sendStart() },
-                enabled = isConnected,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp)
-            ) {
-                Text("START", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-            Button(
-                onClick = { connectionViewModel.sendCancel() },
-                enabled = isConnected,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp)
-            ) {
-                Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-        }
+                .height(238.dp),
+            connectionViewModel = connectionViewModel,
+            flightState = flightState,
+            isConnected = isConnected
+        )
 
         if (isConnecting) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 76.dp),
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 64.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp))
@@ -188,6 +269,24 @@ fun MainScreen(
             bluetoothReady = btGranted && connectionViewModel.isBluetoothReady(),
             onDismiss = { showConnectDialog = false }
         )
+    }
+}
+
+@Composable
+private fun OverlayIconButton(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xAA000000),
+        modifier = Modifier.size(40.dp)
+    ) {
+        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                imageVector = icon,
+                contentDescription = description,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
 

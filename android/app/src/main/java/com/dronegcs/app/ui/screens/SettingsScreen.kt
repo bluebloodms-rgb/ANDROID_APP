@@ -49,7 +49,8 @@ import com.dronegcs.app.viewmodel.SettingsViewModel
 @Composable
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    connectionViewModel: ConnectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    connectionViewModel: ConnectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    cameraViewModel: com.dronegcs.app.viewmodel.CameraViewModel? = null
 ) {
     val btDeviceAddress by settingsViewModel.btDeviceAddress.collectAsStateWithLifecycle()
     val btDeviceName by settingsViewModel.btDeviceName.collectAsStateWithLifecycle()
@@ -178,6 +179,45 @@ fun SettingsScreen(
                                 onDone = { settingsViewModel.updateRtspUrl(rtspUrlText) }
                             )
                         )
+
+                        Divider()
+
+                        Text(
+                            "Apply video source:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        androidx.compose.foundation.layout.Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    cameraViewModel?.setVideoSource(
+                                        com.dronegcs.app.domain.model.VideoSource.PhoneCamera(
+                                            facing = androidx.camera.core.CameraSelector.LENS_FACING_BACK
+                                        )
+                                    )
+                                }
+                            ) { Text("Back camera") }
+                            Button(
+                                onClick = {
+                                    cameraViewModel?.setVideoSource(
+                                        com.dronegcs.app.domain.model.VideoSource.PhoneCamera(
+                                            facing = androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+                                        )
+                                    )
+                                }
+                            ) { Text("Front camera") }
+                            Button(
+                                enabled = rtspUrlText.startsWith("rtsp://"),
+                                onClick = {
+                                    settingsViewModel.updateRtspUrl(rtspUrlText)
+                                    cameraViewModel?.setVideoSource(
+                                        com.dronegcs.app.domain.model.VideoSource.RtspStream(rtspUrlText.trim())
+                                    )
+                                }
+                            ) { Text("RTSP stream") }
+                        }
                     }
                 }
             }

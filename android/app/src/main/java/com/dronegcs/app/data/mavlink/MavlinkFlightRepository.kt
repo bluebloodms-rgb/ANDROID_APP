@@ -164,12 +164,32 @@ class MavlinkFlightRepository(
                 val text = MavlinkProtocol.decodeStatustextPayload(message.payload)
                 text?.let { processStatustext(it) }
             }
+            MavlinkProtocol.MSG_ID_COMMAND_ACK -> processCommandAck(message)  // COMMAND_ACK
             0 -> processHeartbeat(message)        // HEARTBEAT
             1 -> processSysStatus(message)        // SYS_STATUS (ArduPilot battery voltage)
+            24 -> processGps(message)             // GPS_RAW_INT
+            33 -> processGlobalPosition(message)  // GLOBAL_POSITION_INT (relative_alt, lat, lon)
             147 -> processBattery(message)        // BATTERY_STATUS
             173 -> processRangefinder(message)    // RANGEFINDER (ArduPilot dialect)
-            24 -> processGps(message)             // GPS_RAW_INT
             else -> Timber.v("Unhandled MAVLink message: ${message.msgId}")
+        }
+    }
+
+    private fun processCommandAck(message: MavlinkMessage) {
+        // COMMAND_ACK payload: command(2) result(1) progress(1) result_param2(2) target_system(1) target_component(1)
+        if (message.payload.size >= 7) {
+            val command = (message.payload[0].toInt() and 0xFF) or
+                          ((message.payload[1].toInt() and 0xFF) shl 8)
+            val result = message.payload[2].toInt() and 0xFF
+            val resultNames = arrayOf(
+                "ACCEPTED", "TEMPORARILY_REJECTED", "DENIED", "UNSUPPORTED",
+                "FAILED", "IN_PROGRESS", "CANCELLED", "AUTH_DENIED"
+            )
+            val resultName = if (result < resultNames.size) resultNames[result] else "UNKNOWN($result)"
+            Timber.i("COMMAND_ACK: cmd=$command result=$resultName")
+            _flightState.update { current ->
+                current.updateFromCommandAck(command, result)
+            }
         }
     }
 
@@ -188,21 +208,24 @@ class MavlinkFlightRepository(
     }
 
     private fun processBattery(message: MavlinkMessage) {
-        // BATTERY_STATUS: voltages[0] is uint16_t mV at offset 0 (10-bit encoding)
-        if (message.payload.size >= 2) {
-            val voltageMv = (message.payload[0].toInt() and 0xFF) or
-                            ((message.payload[1].toInt() and 0xFF) shl 8)
+        // BATTERY_STATUS wire layout:
+        // id(1) battery_function(1) type(1) temperature(2) voltages[10](20) current_battery(2) ...
+        // voltages[0] at offset 5 (uint16_t mV)
+        if (message.payload.size >= 7) {
+            val voltageMv = (message.payload[5].toInt() and 0xFF) or
+                            ((message.payload[6].toInt() and 0xFF) shl 8)
             if (voltageMv in 1..0xFFFF && voltageMv != 0xFFFF) {
                 _flightState.update { current ->
                     current.updateTelemetry(battery = voltageMv / 1000.0f)
                 }
+                Timber.d("BATTERY_STATUS: battery=%.2fV", voltageMv / 1000.0f)
             }
         }
     }
 
     private fun processSysStatus(message: MavlinkMessage) {
-        // SYS_STATUS: voltage_battery uint16_t mV at offset 14
-        // (after sensors_present/enabled/found u32 x3 + load u16)
+        // SYS_STATUS wire layout (ArduPilot):
+        // sensors_present(4) sensors_enabled(4) sensors_health(4) load(2) voltage_battery(2)@14
         if (message.payload.size >= 16) {
             val voltageMv = (message.payload[14].toInt() and 0xFF) or
                             ((message.payload[15].toInt() and 0xFF) shl 8)
@@ -210,6 +233,7 @@ class MavlinkFlightRepository(
                 _flightState.update { current ->
                     current.updateTelemetry(battery = voltageMv / 1000.0f)
                 }
+                Timber.d("SYS_STATUS: battery=%.2fV", voltageMv / 1000.0f)
             }
         }
     }
@@ -231,14 +255,11 @@ class MavlinkFlightRepository(
     }
 
     private fun processGps(message: MavlinkMessage) {
-        // GPS_RAW_INT wire layout:
-        // time_usec(8) fix_type(1) lat(4) lon(4) alt(4) eph(2) epv(2) vel(2) cog(2) satellites_visible(1)
-        // -> eph @21, satellites_visible @29
+        // GPS_RAW_INT wire layout (ArduPilot):
+        // time_usec(8) fix_type(1) lat(4) lon(4) alt(4) eph(2)@20 epv(2)@22 vel(2)@24 cog(2)@26 ... sats(1)@29
+        // Note: fix_type at offset 8 is skipped in our offset calculation because fields are sorted by size
+        // Verified against live frames: eph@20, epv@22, vel@24, cog@26, satellites@29
         if (message.payload.size >= 30) {
-            // NOTE: verified against live ArduPilot frames (decoded lat/lon/alt match
-            // Tehran coordinates & elevation):
-            //   time_usec(8) lat(4) lon(4) alt(4) eph(2)@20 epv(2)@22 vel(2)@24 cog(2)@26
-            //   ... sats @29
             val eph = (message.payload[20].toInt() and 0xFF) or
                       ((message.payload[21].toInt() and 0xFF) shl 8)
             val hdop = eph / 100.0f
@@ -252,6 +273,31 @@ class MavlinkFlightRepository(
                     hdop = hdop,
                     satellites = satellites.coerceIn(0, 32)
                 )
+            }
+        }
+    }
+
+    private fun processGlobalPosition(message: MavlinkMessage) {
+        // GLOBAL_POSITION_INT wire layout:
+        // time_boot_ms(4) lat(4) lon(4) alt(4) relative_alt(4) vx(2) vy(2) vz(2) hdg(2)
+        // relative_alt at offset 16 (int32_t, mm)
+        if (message.payload.size >= 20) {
+            val relativeAltMm = java.nio.ByteBuffer.wrap(message.payload, 16, 4)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
+            val altitude = relativeAltMm / 1000.0f // convert mm to meters
+
+            // Also extract lat/lon for potential future use
+            val lat = java.nio.ByteBuffer.wrap(message.payload, 4, 4)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
+            val lon = java.nio.ByteBuffer.wrap(message.payload, 8, 4)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
+
+            Timber.d("GLOBAL_POSITION_INT: lat=%.7f lon=%.7f relative_alt=%.2fm", lat, lon, altitude)
+
+            if (altitude >= -100f && altitude < 10000f) { // sanity check
+                _flightState.update { current ->
+                    current.updateTelemetry(altitude = altitude)
+                }
             }
         }
     }

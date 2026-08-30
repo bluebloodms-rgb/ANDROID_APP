@@ -13,11 +13,20 @@ object MavlinkProtocol {
     // MAVLink v2 constants
     const val MAVLINK_STX = 0xFD
     const val MSG_ID_STATUSTEXT = 253
+    const val MSG_ID_COMMAND_LONG = 76
+    const val MSG_ID_COMMAND_ACK = 77
     private const val INCOMPAT_FLAG_SIGNED = 0x01
     private const val FRAME_HEADER_LEN = 10 // STX..msgid(3)
     private const val FRAME_CRC_LEN = 2
     private const val MAV_SEVERITY_INFO = 6
     private const val MAX_STATUSTEXT_LENGTH = 50
+
+    // MAVLink Command IDs
+    const val MAV_CMD_COMPONENT_ARM_DISARM = 400
+    const val MAV_CMD_NAV_TAKEOFF = 22
+    const val MAV_CMD_MISSION_START = 300
+    const val MAV_CMD_NAV_RETURN_TO_LAUNCH = 20
+    const val MAV_CMD_NAV_LAND = 21
 
     // SPP UUID for Bluetooth Classic
     const val SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
@@ -71,6 +80,80 @@ object MavlinkProtocol {
 
         Timber.d("Encoded STATUSTEXT: $truncatedText (${frame.size} bytes)")
         return frame
+    }
+
+    /**
+     * Encode a COMMAND_LONG message as MAVLink v2 frame
+     * Standard MAVLink command for ARM/DISARM, TAKEOFF, RTL, etc.
+     */
+    fun encodeCommandLong(
+        command: Int,
+        param1: Float = 0f,
+        param2: Float = 0f,
+        param3: Float = 0f,
+        param4: Float = 0f,
+        param5: Float = 0f,
+        param6: Float = 0f,
+        param7: Float = 0f,
+        targetSystem: Int = 1,
+        targetComponent: Int = 1,
+        confirmation: Int = 0
+    ): ByteArray {
+        // COMMAND_LONG payload: target_system(1) target_component(1) command(2) confirmation(1) param1-7(4*7=28)
+        // Total: 1+1+2+1+28 = 33 bytes
+        val payload = ByteArray(33)
+        var idx = 0
+        payload[idx++] = targetSystem.toByte()
+        payload[idx++] = targetComponent.toByte()
+        payload[idx++] = (command and 0xFF).toByte()
+        payload[idx++] = ((command shr 8) and 0xFF).toByte()
+        payload[idx++] = confirmation.toByte()
+
+        // param1-7 as float (4 bytes each, little endian)
+        floatToBytes(param1).copyInto(payload, idx); idx += 4
+        floatToBytes(param2).copyInto(payload, idx); idx += 4
+        floatToBytes(param3).copyInto(payload, idx); idx += 4
+        floatToBytes(param4).copyInto(payload, idx); idx += 4
+        floatToBytes(param5).copyInto(payload, idx); idx += 4
+        floatToBytes(param6).copyInto(payload, idx); idx += 4
+        floatToBytes(param7).copyInto(payload, idx); idx += 4
+
+        val seq = nextSequence()
+        val sysId = 1
+        val compId = 1
+
+        val msgLen = payload.size
+        val frame = ByteArray(FRAME_HEADER_LEN + msgLen + FRAME_CRC_LEN)
+        idx = 0
+
+        frame[idx++] = MAVLINK_STX.toByte()
+        frame[idx++] = (msgLen and 0xFF).toByte()
+        frame[idx++] = 0
+        frame[idx++] = 0
+        frame[idx++] = seq.toByte()
+        frame[idx++] = sysId.toByte()
+        frame[idx++] = compId.toByte()
+
+        frame[idx++] = (MSG_ID_COMMAND_LONG and 0xFF).toByte()
+        frame[idx++] = ((MSG_ID_COMMAND_LONG shr 8) and 0xFF).toByte()
+        frame[idx++] = ((MSG_ID_COMMAND_LONG shr 16) and 0xFF).toByte()
+
+        payload.copyInto(frame, idx)
+        idx += payload.size
+
+        val crc = calculateCrc(frame, 1, idx, MSG_ID_COMMAND_LONG)
+        frame[idx++] = (crc and 0xFF).toByte()
+        frame[idx++] = ((crc shr 8) and 0xFF).toByte()
+
+        Timber.d("Encoded COMMAND_LONG: cmd=$command params=[$param1,$param2,$param3,$param4,$param5,$param6,$param7] (${frame.size} bytes)")
+        return frame
+    }
+
+    private fun floatToBytes(value: Float): ByteArray {
+        return java.nio.ByteBuffer.allocate(4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .putFloat(value)
+            .array()
     }
 
     /**

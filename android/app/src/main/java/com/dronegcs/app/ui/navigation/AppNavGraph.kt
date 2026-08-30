@@ -24,6 +24,8 @@ fun AppNavHost(
     settingsViewModel: SettingsViewModel
 ) {
     val navController = rememberNavController()
+    // Activity-scoped so the video source selection made in Settings is shared with MainScreen.
+    val cameraViewModel = hiltViewModel<CameraViewModel>()
     androidx.navigation.compose.NavHost(navController, startDestination) {
         composable(NavigationDestinations.ONBOARDING) {
             OnboardingScreen(
@@ -35,13 +37,15 @@ fun AppNavHost(
             MainScreen(
                 connectionViewModel = hiltViewModel(),
                 telemetryViewModel = hiltViewModel(),
-                cameraViewModel = hiltViewModel()
+                cameraViewModel = cameraViewModel,
+                onOpenSettings = { navController.navigate(NavigationDestinations.SETTINGS) }
             )
         }
         composable(NavigationDestinations.SETTINGS) {
             SettingsScreen(
                 settingsViewModel = hiltViewModel(),
-                connectionViewModel = hiltViewModel()
+                connectionViewModel = hiltViewModel(),
+                cameraViewModel = cameraViewModel
             )
         }
         composable(NavigationDestinations.PHASE1_TEST) {
