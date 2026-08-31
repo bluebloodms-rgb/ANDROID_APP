@@ -2,6 +2,7 @@ package com.dronegcs.app.data.camera
 
 import android.content.Context
 import android.util.Size
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -31,6 +32,7 @@ class CameraXPreviewRepository(
 ) {
 
     private var cameraProvider: ProcessCameraProvider? = null
+    private var camera: Camera? = null
     private var currentCameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
     private var previewView: PreviewView? = null
     private var lifecycleOwner: LifecycleOwner? = null
@@ -123,6 +125,7 @@ class CameraXPreviewRepository(
 
         try {
             val camera = provider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+            this.camera = camera
             _isActive.value = true
             _error.value = null
             Timber.d("CameraX preview started: ${camera.cameraInfo}")
@@ -131,6 +134,17 @@ class CameraXPreviewRepository(
             _error.value = "Failed to start camera: ${e.message}"
             _isActive.value = false
         }
+    }
+
+    /**
+     * Zooms the phone-camera preview (1.0 .. maxZoomRatio, clamped).
+     * No-op when the preview is not active. Runs on the main thread scope.
+     */
+    fun setZoomRatio(ratio: Float) {
+        val cam = camera ?: return
+        val max = cam.cameraInfo.zoomState.value?.maxZoomRatio ?: 10f
+        val clamped = ratio.coerceIn(1f, max)
+        cam.cameraControl.setZoomRatio(clamped)
     }
 
     fun shutdown() {

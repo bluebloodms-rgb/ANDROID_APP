@@ -169,6 +169,24 @@ Build 20, 26/26 unit tests, 0 FATAL. All verified via adb UI automation + logcat
   controller; a successful connect had persisted it). Auto-connect + `_lastAttemptedDevice`
   reconnect verified against it (PAGE_TIMEOUT while the controller is off — expected).
 
+### Session 4 follow-up (same day) — visual bugs in the panel + zoom
+
+Diagnosed via screencap pixel analysis (uiautomator lies on this screen — see §9):
+
+- **PID input boxes rendered stretched/merged:** the M3 `TextField` ignored the tiny fixed
+  size (33×34dp) — each box drew ~110dp tall, painting OVER the group labels and visually
+  merging rows 1+2 (pixel scan showed 9 overlapping blobs; THRUST/SERVO boxes invisible).
+  Replaced with foundation `BasicTextField` + explicit 34×36dp background + centered
+  placeholder-style label. Post-fix pixel scan: **15 distinct boxes** (9 + 6) in two clean rows,
+  group labels visible (blue). Lesson: never use M3 TextField for tiny fixed-size inputs.
+- **Zoom made collapsible:** right-edge chevron handle (`Toggle zoom control`) + 
+  `AnimatedVisibility` slide — same pattern as the pitch slider. Verified hide/restore.
+- **Zoom "+" now actually zooms:** `CameraXPreviewRepository` keeps the `Camera` handle and
+  exposes `setZoomRatio()` (clamped to `zoomState.maxZoomRatio`); `CameraViewModel.setCameraZoom()`
+  applies it in phone-camera mode; `MainScreen.changeZoom()` now zooms the LOCAL preview AND
+  sends `Zoom:x.x`. Verified: label 1.0X→2.0X, preview center pixels changed 36.5%, and
+  `Zoom:1.0` on reset — 0 FATAL.
+
 
 1. **Live-hardware test day (NOW):** the user has the controller. `SIYI-5902210770` is saved and
    auto-connect will fire on app launch once the controller is powered. Verify telemetry chips,

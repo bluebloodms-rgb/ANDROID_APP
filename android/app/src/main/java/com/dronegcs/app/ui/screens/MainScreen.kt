@@ -148,6 +148,7 @@ fun MainScreen(
 
     // Mobile-first collapsible panels
     var showPitchPanel by remember { mutableStateOf(false) }
+    var showZoomPanel by remember { mutableStateOf(true) }
     var showControlPanel by remember { mutableStateOf(false) }
     var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
     var lastSentPitch by remember { mutableStateOf(0f) }
@@ -165,11 +166,13 @@ fun MainScreen(
 
     fun changeZoom(delta: Float) {
         zoomValue = (zoomValue + delta).coerceIn(1f, 10f)
-        connectionViewModel.sendZoom(zoomValue)
+        cameraViewModel.setCameraZoom(zoomValue)   // zooms the local phone-camera preview
+        connectionViewModel.sendZoom(zoomValue)    // drone camera zoom over MAVLink
     }
 
     fun resetZoom() {
         zoomValue = 1f
+        cameraViewModel.setCameraZoom(1f)
         connectionViewModel.sendZoom(1f)
     }
 
@@ -256,19 +259,44 @@ fun MainScreen(
             )
         }
 
-        // Right edge: compact zoom pill (replaces the big D-pad).
-        // Enabled even when disconnected: commands are safe no-ops, so the
-        // control can be debugged offline before the hardware test.
-        ZoomPill(
+        // Right edge handle: toggle the collapsible zoom pill (like the pitch slider)
+        Box(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 8.dp, bottom = 84.dp),
-            zoom = zoomValue,
-            enabled = true,
-            onZoomIn = { changeZoom(1f) },
-            onZoomOut = { changeZoom(-1f) },
-            onReset = { resetZoom() }
-        )
+                .align(Alignment.CenterEnd)
+                .background(
+                    Color(0xAA000000),
+                    RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 0.dp)
+                )
+                .clickable { showZoomPanel = !showZoomPanel }
+                .padding(vertical = 14.dp, horizontal = 2.dp)
+        ) {
+            Icon(
+                imageVector = if (showZoomPanel) Icons.Default.ChevronRight else Icons.Default.ChevronLeft,
+                contentDescription = "Toggle zoom control",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showZoomPanel,
+            enter = slideInHorizontally(initialOffsetX = { it }),
+            exit = slideOutHorizontally(targetOffsetX = { it }),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 34.dp)
+        ) {
+            // Compact zoom pill (replaces the big D-pad). Enabled even when
+            // disconnected: in phone-camera mode the local preview zooms too,
+            // and the Zoom:x.x command is queued for the drone.
+            ZoomPill(
+                zoom = zoomValue,
+                enabled = true,
+                onZoomIn = { changeZoom(1f) },
+                onZoomOut = { changeZoom(-1f) },
+                onReset = { resetZoom() }
+            )
+        }
 
         // Bottom: collapsible control panel (slides up like the pitch slider)
         // + slim control dock. The dock chevron toggles the panel.

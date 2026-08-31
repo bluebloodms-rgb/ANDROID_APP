@@ -1,10 +1,12 @@
 package com.dronegcs.app.ui.components.controls
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,8 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -168,7 +169,7 @@ private fun PidGroup(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 7.sp,
+            fontSize = 8.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
@@ -180,39 +181,47 @@ private fun PidGroup(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MiniPidField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    TextField(
+    // BasicTextField (NOT M3 TextField): the Material3 text field ignores tiny
+    // fixed sizes and stretches its container across the whole group, which
+    // painted over the group labels and visually merged the PID rows.
+    BasicTextField(
         value = value,
         onValueChange = { v ->
             if (v.length <= 6) onValueChange(v.filter { it.isDigit() || it == '.' || it == '-' })
         },
-        label = { Text(label, fontSize = 6.sp, color = Color.Gray) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = Modifier
-            .width(33.dp)
-            .height(34.dp),
         textStyle = MaterialTheme.typography.bodySmall.copy(
-            fontSize = 9.sp,
+            fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
             color = Color.Black
         ),
-        colors = TextFieldDefaults.textFieldColors(
-            containerColor = Color(0xFFE8E8E8),
-            focusedTextColor = Color.Black,
-            unfocusedTextColor = Color.Black,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedLabelColor = Color.Gray,
-            unfocusedLabelColor = Color.Gray,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent
-        )
+        modifier = Modifier
+            .size(width = 34.dp, height = 36.dp)
+            .background(Color(0xFFE8E8E8), RoundedCornerShape(4.dp))
+            .padding(horizontal = 3.dp),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = label,
+                        fontSize = 7.sp,
+                        color = Color(0xFF777777),
+                        maxLines = 1
+                    )
+                }
+                innerTextField()
+            }
+        }
     )
 }
 

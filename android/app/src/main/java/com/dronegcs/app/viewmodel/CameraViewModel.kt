@@ -130,6 +130,13 @@ class CameraViewModel @Inject constructor(
         }
     }
 
+    /** Zooms the local phone-camera preview (no-op in RTSP mode). */
+    fun setCameraZoom(ratio: Float) {
+        if (_videoSource.value is VideoSource.PhoneCamera) {
+            cameraXRepository.setZoomRatio(ratio)
+        }
+    }
+
     fun releaseVideoResources() {
         cameraXRepository.unbind()
         rtspRepository.release()
