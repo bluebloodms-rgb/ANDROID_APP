@@ -2,7 +2,7 @@
 
 > **Read this file first.** It is the single source of truth for the current state of the
 > Android GCS port. Older docs (`HANDOFF.md`, `projects_status.md`) are historical.
-> Last updated: 2026-08-31 (session 4: UX fixes — see §7c; user has the controller, live test next),
+> Last updated: 2026-08-31 (session 5: Settings screen removed, RTSP dialog via video icon — §7c),
 > branch `android-gcs-bootstrap-77e8a`, HEAD includes commit `57272b8` + UI redesign commits (see git log).
 
 ## 1. Mission
@@ -186,6 +186,22 @@ Diagnosed via screencap pixel analysis (uiautomator lies on this screen — see 
   applies it in phone-camera mode; `MainScreen.changeZoom()` now zooms the LOCAL preview AND
   sends `Zoom:x.x`. Verified: label 1.0X→2.0X, preview center pixels changed 36.5%, and
   `Zoom:1.0` on reset — 0 FATAL.
+
+### Session 5 — Settings screen removed; RTSP dialog via video icon
+
+- **The Settings screen is GONE** (`SettingsScreen.kt` deleted, `SETTINGS` route/destination
+  removed). The TopBar gear was replaced by a **Videocam icon** (`Configure RTSP`) which opens
+  an in-app **RTSP Stream dialog** directly in MainScreen: URL field (prefilled from DataStore),
+  "Start stream" (persists URL + switches source), "Use phone camera", live status line
+  (Starting…/Buffering…/Streaming/error), Close. Verified end-to-end on device (prefill, start →
+  `Buffering…` offline, fallback → `Source: phone camera (back)`, close).
+- **What was lost with the Settings screen** (intentional per user): BT saved-device picker
+  (the CONNECT dialog + auto-connect persist-on-success still cover device selection), baud-rate
+  field (unused by BT flow), flight-default speed/target editors, auto-reconnect toggle
+  (DataStore default `true` still honored). If any need to come back, build them into dialogs.
+- `SettingsViewModel`/`SettingsRepository` remain (RTSP URL, first-run, auto-reconnect,
+  saved-device used by auto-connect; `updateBtDevice` currently has no UI caller).
+- 26/26 unit tests, build 23, 0 FATAL.
 
 
 1. **Live-hardware test day (NOW):** the user has the controller. `SIYI-5902210770` is saved and

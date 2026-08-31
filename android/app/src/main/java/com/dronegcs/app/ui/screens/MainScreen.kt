@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -63,8 +66,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.text.KeyboardOptions
 import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.domain.model.ConnectionUiState
+import com.dronegcs.app.domain.model.VideoSource
 import com.dronegcs.app.ui.components.controls.BottomControlPanel
 import com.dronegcs.app.ui.components.controls.ControlDock
 import com.dronegcs.app.ui.components.controls.PitchSlider
@@ -75,6 +80,7 @@ import com.dronegcs.app.ui.components.hud.TopBar
 import com.dronegcs.app.ui.components.video.VideoSurface
 import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
+import com.dronegcs.app.viewmodel.SettingsViewModel
 import com.dronegcs.app.viewmodel.TelemetryViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -87,7 +93,7 @@ import kotlin.math.roundToInt
  *   - Zoom D-pad (right, 1x-10x)
  *   - Bottom control panel (PID, START/CANCEL, mode, speed, target)
  *   - Tap on video -> Pos:x,y (scaled to 1280x720) + reticle
- *   - Settings & camera-switch shortcuts
+ *   - RTSP shortcut (video icon) -> in-app RTSP configuration dialog
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +101,7 @@ fun MainScreen(
     connectionViewModel: ConnectionViewModel = viewModel(),
     telemetryViewModel: TelemetryViewModel = viewModel(),
     cameraViewModel: CameraViewModel = viewModel(),
-    onOpenSettings: () -> Unit = {}
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val flightState by telemetryViewModel.flightState.collectAsStateWithLifecycle()
@@ -113,6 +119,7 @@ fun MainScreen(
     }
     var btGranted by remember { mutableStateOf(bluetoothPermissionGranted(context)) }
     var showConnectDialog by remember { mutableStateOf(false) }
+    var showRtspDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -219,7 +226,7 @@ fun MainScreen(
                 showConnectDialog = true
             },
             onDisconnectClick = { connectionViewModel.disconnect() },
-            onSettingsClick = onOpenSettings
+            onRtspClick = { showRtspDialog = true }
         )
 
         // Left edge handle: toggle the collapsible pitch slider
@@ -359,6 +366,84 @@ fun MainScreen(
             onDismiss = { showConnectDialog = false }
         )
     }
+
+    if (showRtspDialog) {
+        RtspConfigDialog(
+            settingsViewModel = settingsViewModel,
+            cameraViewModel = cameraViewModel,
+            onDismiss = { showRtspDialog = false }
+        )
+    }
+}
+
+/**
+ * RTSP configuration dialog (replaces the old Settings screen): enter the stream
+ * URL, start streaming, or fall back to the phone back camera. Shows the live
+ * source status (starting / buffering / streaming / error).
+ */
+@Composable
+private fun RtspConfigDialog(
+    settingsViewModel: SettingsViewModel,
+    cameraViewModel: CameraViewModel,
+    onDismiss: () -> Unit
+) {
+    val rtspUrl by settingsViewModel.rtspUrl.collectAsStateWithLifecycle()
+    val videoSource by cameraViewModel.videoSource.collectAsStateWithLifecycle()
+    val isPlaying by cameraViewModel.isRtspPlaying.collectAsStateWithLifecycle()
+    val isBuffering by cameraViewModel.rtspBuffering.collectAsStateWithLifecycle()
+    val rtspError by cameraViewModel.rtspError.collectAsStateWithLifecycle()
+    var urlText by remember(rtspUrl) { mutableStateOf(rtspUrl ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("RTSP Stream") },
+        text = {
+            Column {
+                val isError = videoSource is VideoSource.RtspStream && rtspError != null
+                val status = when (videoSource) {
+                    is VideoSource.RtspStream -> when {
+                        rtspError != null -> "Stream error: $rtspError"
+                        isBuffering -> "Buffering…"
+                        isPlaying -> "Streaming"
+                        else -> "Starting…"
+                    }
+                    is VideoSource.PhoneCamera -> "Source: phone camera (back)"
+                    VideoSource.None -> "Source: none"
+                }
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isError) Color(0xFFC62828) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                TextField(
+                    value = urlText,
+                    onValueChange = { urlText = it },
+                    label = { Text("RTSP URL") },
+                    placeholder = { Text("rtsp://...") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { cameraViewModel.setVideoSource(VideoSource.PhoneCamera()) }) {
+                        Text("Use phone camera")
+                    }
+                    Button(
+                        enabled = urlText.trim().startsWith("rtsp://"),
+                        onClick = {
+                            settingsViewModel.updateRtspUrl(urlText.trim())
+                            cameraViewModel.setVideoSource(VideoSource.RtspStream(urlText.trim()))
+                        }
+                    ) { Text("Start stream") }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }
 
 private fun bluetoothPermissionGranted(context: android.content.Context): Boolean =

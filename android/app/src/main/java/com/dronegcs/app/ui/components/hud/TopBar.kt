@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,7 +44,7 @@ fun TopBar(
     flightState: FlightState,
     onConnectClick: () -> Unit,
     onDisconnectClick: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onRtspClick: () -> Unit = {}
 ) {
     val connection = flightState.connectionState
     val isConnected = connection is ConnectionState.Connected
@@ -112,10 +112,10 @@ fun TopBar(
                 )
             }
 
-            IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onRtspClick, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    imageVector = Icons.Default.Videocam,
+                    contentDescription = "Configure RTSP",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )

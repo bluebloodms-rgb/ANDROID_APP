@@ -9,7 +9,6 @@ import androidx.navigation.compose.rememberNavController
 import com.dronegcs.app.ui.screens.MainScreen
 import com.dronegcs.app.ui.screens.OnboardingScreen
 import com.dronegcs.app.ui.screens.Phase1TestScreen
-import com.dronegcs.app.ui.screens.SettingsScreen
 import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 import com.dronegcs.app.viewmodel.SettingsViewModel
@@ -38,15 +37,7 @@ fun AppNavHost(
                 connectionViewModel = hiltViewModel(),
                 telemetryViewModel = hiltViewModel(),
                 cameraViewModel = cameraViewModel,
-                onOpenSettings = { navController.navigate(NavigationDestinations.SETTINGS) }
-            )
-        }
-        composable(NavigationDestinations.SETTINGS) {
-            SettingsScreen(
-                settingsViewModel = hiltViewModel(),
-                connectionViewModel = hiltViewModel(),
-                cameraViewModel = cameraViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                settingsViewModel = settingsViewModel
             )
         }
         composable(NavigationDestinations.PHASE1_TEST) {
@@ -64,6 +55,5 @@ fun AppNavHost(
 object NavigationDestinations {
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
-    const val SETTINGS = "settings"
     const val PHASE1_TEST = "phase1test"
 }
