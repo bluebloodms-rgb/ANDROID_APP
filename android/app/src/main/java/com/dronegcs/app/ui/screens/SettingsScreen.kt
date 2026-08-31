@@ -25,8 +25,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.CameraFront
-import androidx.compose.material.icons.filled.CameraRear
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
@@ -53,13 +51,13 @@ import com.dronegcs.app.viewmodel.SettingsViewModel
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     connectionViewModel: ConnectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    cameraViewModel: com.dronegcs.app.viewmodel.CameraViewModel? = null
+    cameraViewModel: com.dronegcs.app.viewmodel.CameraViewModel? = null,
+    onNavigateBack: () -> Unit = {}
 ) {
     val btDeviceAddress by settingsViewModel.btDeviceAddress.collectAsStateWithLifecycle()
     val btDeviceName by settingsViewModel.btDeviceName.collectAsStateWithLifecycle()
     val baudRate by settingsViewModel.baudRate.collectAsStateWithLifecycle()
     val rtspUrl by settingsViewModel.rtspUrl.collectAsStateWithLifecycle()
-    val defaultCameraFacing by settingsViewModel.defaultCameraFacing.collectAsStateWithLifecycle()
     val defaultSpeed by settingsViewModel.defaultSpeed.collectAsStateWithLifecycle()
     val defaultTargetClass by settingsViewModel.defaultTargetClass.collectAsStateWithLifecycle()
     val autoReconnectEnabled by settingsViewModel.autoReconnectEnabled.collectAsStateWithLifecycle()
@@ -80,7 +78,7 @@ fun SettingsScreen(
             androidx.compose.material3.TopAppBar(
                 title = { Text("Settings", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
                 navigationIcon = {
-                    androidx.compose.material3.IconButton(onClick = { /* navigate back */ }) {
+                    androidx.compose.material3.IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -160,21 +158,6 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         SettingRow(
-                            label = "Default Camera",
-                            value = if (defaultCameraFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT) "Front" else "Back",
-                            onClick = {
-                                val newFacing = if (defaultCameraFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT) {
-                                    androidx.camera.core.CameraSelector.LENS_FACING_BACK
-                                } else {
-                                    androidx.camera.core.CameraSelector.LENS_FACING_FRONT
-                                }
-                                settingsViewModel.updateDefaultCameraFacing(newFacing)
-                            }
-                        )
-
-                        Divider()
-
-                        SettingRow(
                             label = "RTSP Stream URL",
                             value = rtspUrl ?: "Not set",
                             onClick = { /* focus text field */ }
@@ -212,15 +195,6 @@ fun SettingsScreen(
                                     )
                                 }
                             ) { Text("Back camera") }
-                            Button(
-                                onClick = {
-                                    cameraViewModel?.setVideoSource(
-                                        com.dronegcs.app.domain.model.VideoSource.PhoneCamera(
-                                            facing = androidx.camera.core.CameraSelector.LENS_FACING_FRONT
-                                        )
-                                    )
-                                }
-                            ) { Text("Front camera") }
                             Button(
                                 enabled = rtspUrlText.startsWith("rtsp://"),
                                 onClick = {

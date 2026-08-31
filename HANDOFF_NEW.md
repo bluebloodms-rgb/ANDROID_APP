@@ -2,7 +2,7 @@
 
 > **Read this file first.** It is the single source of truth for the current state of the
 > Android GCS port. Older docs (`HANDOFF.md`, `projects_status.md`) are historical.
-> Last updated: 2026-08-30 (session 3: auto-connect + video-source persistence — see §7b),
+> Last updated: 2026-08-31 (session 4: UX fixes — see §7c; user has the controller, live test next),
 > branch `android-gcs-bootstrap-77e8a`, HEAD includes commit `57272b8` + UI redesign commits (see git log).
 
 ## 1. Mission
@@ -135,12 +135,48 @@ All offline-testable (no drone). Builds 14–19 green, 26/26 unit tests, final A
 
 
 
-## 8. Remaining TODO (priority order)
+## 7c. SESSION 4 — UX bug-fix round (DONE, device-verified)
 
-1. **Live-hardware test day:** BT connect → verify telemetry chips, START/CANCEL ACK results, PID send, speed/target, zoom/pitch/Pos over the real link. Pair FC in Android BT settings first, then select it in the GCS Settings device list (auto-connect will fire on next launch). SIYI units (`SIYI-5902210770`, `SIYI-5902244052`) are already bonded. (Pos tap + reticle not re-verified this session — canvas has no accessibility node; verify visually on hardware day.)
+Build 20, 26/26 unit tests, 0 FATAL. All verified via adb UI automation + logcat.
+
+- **Settings back button fixed:** the top-bar ArrowBack was a literal no-op
+  (`onClick = { /* navigate back */ }`). Added `onNavigateBack` param, wired to
+  `navController.popBackStack()` in AppNavGraph. Verified: tap returns to Main.
+- **Phone-camera front/back switching removed entirely** (user request): TopBar `Cameraswitch`
+  icon + `onSwitchCameraClick` removed; Settings "Default Camera" row + "Front camera" apply
+  button removed; `CameraViewModel.switchCamera()` + unused `cameraFacing` flow removed;
+  `SettingsViewModel.updateDefaultCameraFacing()` removed. Video source is now phone **back**
+  camera or RTSP — nothing else. `restoreSavedVideoSource()` always restores the back camera
+  (ignores any stale FRONT value in DataStore). NOTE: TopBar icon positions shifted (Settings
+  gear moved left) — re-dump for new bounds when automating.
+- **Control panel redesigned (user request):**
+  - The ModalBottomSheet was replaced by an in-layout panel that **slides up above the
+    ControlDock** (`AnimatedVisibility` + `slideInVertically/OutVertically`) — same pattern as
+    the pitch slider. The dock chevron toggles it and flips (KeyboardArrowUp/Down).
+  - **Duplicate START/CANCEL/MANUAL/AUTO row removed** from the panel (accessible from the dock).
+  - **Root cause of "boxes not all displayed" fixed:** the old panel was a fixed-238dp `Surface`
+    whose content overflowed and got clipped — the Speed/Target buttons below the labels were
+    entirely pruned (verified pre-fix via UI dump). Panel is now wrap-height + internally
+    scrollable; all 15 PID boxes + both dropdowns render within the viewport (dump-verified).
+  - **Speed is a dropdown** (12/19/22 m/s) and **Target is a dropdown with icons**
+    (Person/Car/Balloon/UAV, `ic_person/ic_car/ic_balloon/ic_drone`); both send immediately on
+    selection (logcat-verified: `Speed 12.0 → Pitch 12.0`, `CLASS:3,Notcare:3`). The button label
+    mirrors the drone-reported `spd`/`cls` state, so offline it stays at the last known value.
+  - **Caveat for hardware day:** the panel's old START was the only way to send typed PID values
+    (`START:TRUE,<pid>`); per user request it is gone — the dock START sends `START:TRUE`
+    without PID. PID text fields remain but are currently display/input-only.
+- `SIYI-5902210770` is now the **saved auto-connect device** in DataStore (the user has the
+  controller; a successful connect had persisted it). Auto-connect + `_lastAttemptedDevice`
+  reconnect verified against it (PAGE_TIMEOUT while the controller is off — expected).
+
+
+1. **Live-hardware test day (NOW):** the user has the controller. `SIYI-5902210770` is saved and
+   auto-connect will fire on app launch once the controller is powered. Verify telemetry chips,
+   START/CANCEL ACK results, PID send, speed/target dropdown sends, zoom/pitch/Pos over the real
+   link. (Pos tap + reticle not re-verified — canvas has no accessibility node; verify visually.)
 2. **RTSP live decode:** ExoPlayer (Media3) pipeline is in place and restore/persistence work offline (§7b) — but actual H.264 decode was never seen (no reachable stream offline; app shows graceful ExoPlayer error while TCP times out). Verify against the real SIYI stream on hardware day.
 3. `git push origin android-gcs-bootstrap-77e8a` (remote exists; may need credentials).
-4. Optional: landscape-specific layout tuning, night colors, haptics on ARM/TAKEOFF confirm.
+4. Optional: landscape-specific layout tuning, night colors, haptics on ARM/TAKEOFF confirm, and a way to send PID values with START if the user wants it back.
 
 
 ## 9. Pitfalls for the next AI
@@ -157,4 +193,7 @@ All offline-testable (no drone). Builds 14–19 green, 26/26 unit tests, final A
   a focused TextField keeps re-panning above the IME — unfocus (keyevent 111/66) before scrolling.
 - `svc bluetooth enable` / `svc bluetooth disable` work over adb shell on this phone; BT ships OFF.
 - `uiautomator dump` can return stale content right after a dialog state change — wait ~2 s and re-dump.
+- On the Settings screen, uiautomator sometimes DROPS merged text nodes that are really rendered
+  (e.g. the "Paired Device" row): cross-check with a screencap + pixel sample before concluding
+  a composable is missing.
 - Datastore inspect: `adb shell run-as com.dronegcs.app cat files/datastore/settings.preferences_pb | strings`.

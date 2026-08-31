@@ -101,16 +101,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun updateDefaultCameraFacing(facing: Int) {
-        _defaultCameraFacing.value = facing
-        viewModelScope.launch {
-            try {
-                settingsRepository.setDefaultCameraFacing(facing)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
     fun updateDefaultSpeed(speed: Int) {
         _defaultSpeed.value = speed
         viewModelScope.launch {

@@ -45,7 +45,8 @@ fun AppNavHost(
             SettingsScreen(
                 settingsViewModel = hiltViewModel(),
                 connectionViewModel = hiltViewModel(),
-                cameraViewModel = cameraViewModel
+                cameraViewModel = cameraViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(NavigationDestinations.PHASE1_TEST) {

@@ -1,22 +1,27 @@
 package com.dronegcs.app.ui.components.controls
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -33,7 +38,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
@@ -42,21 +46,18 @@ import com.dronegcs.app.domain.model.FlightState
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 
 /**
- * Bottom control panel mirroring the Windows ControlBar exactly:
+ * Collapsible control panel for the mobile GCS:
  *   Row 1: PID inputs YAW1 (y1,d1,l1) + YAW2 (y2,d2,l2) + ROLL (r,dr,lr)
  *   Row 2: PID inputs THRUST (t,dt,lt) + SERVO (s,ds,ls)
- *   Row 3: START / CANCEL / MANUAL / AUTO
- *   Row 4: Speed (12, 19, 22) + Targets (Person, Car, Balloon, UAV)
+ *   Row 3: Speed dropdown (12/19/22) + Target dropdown (Person/Car/Balloon/UAV, with icons)
  *
- * START sends "START:TRUE,<key=value,...>" for the filled PID fields and clears them
- * (identical to the Python ControlBar._get_pid_values behavior).
+ * START/CANCEL/MANUAL/AUTO live in the always-visible ControlDock (no duplicates here),
+ * and the panel is scrollable + never clipped: it slides in above the dock on the main screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BottomControlPanel(
-    modifier: Modifier = Modifier
-        .fillMaxWidth()
-        .height(238.dp),
+    modifier: Modifier = Modifier.fillMaxWidth(),
     connectionViewModel: ConnectionViewModel,
     flightState: FlightState,
     isConnected: Boolean
@@ -78,27 +79,7 @@ fun BottomControlPanel(
     var ds by remember { mutableStateOf("") }  // kd_srv
     var ls by remember { mutableStateOf("") }  // limit_srv
 
-    fun buildPidStringAndClear(): String {
-        val entries = linkedMapOf(
-            "y1" to y1, "d1" to d1, "l1" to l1,
-            "y2" to y2, "d2" to d2, "l2" to l2,
-            "r" to r, "dr" to dr, "lr" to lr,
-            "t" to t, "dt" to dt, "lt" to lt,
-            "s" to s, "ds" to ds, "ls" to ls
-        )
-        val pid = entries.filterValues { it.isNotBlank() }
-            .map { (k, v) -> "$k=${v.trim()}" }
-            .joinToString(",")
-        y1 = ""; d1 = ""; l1 = ""; y2 = ""; d2 = ""; l2 = ""
-        r = ""; dr = ""; lr = ""; t = ""; dt = ""; lt = ""
-        s = ""; ds = ""; ls = ""
-        return pid
-    }
-
     val initialized = flightState.initialized
-    val startEnabled = initialized && flightState.op != 2
-    val manualEnabled = initialized && flightState.md != 1
-    val autoEnabled = initialized && flightState.md != 2
 
     Surface(
         modifier = modifier,
@@ -108,9 +89,10 @@ fun BottomControlPanel(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Row 1: YAW1, YAW2, ROLL
             Row(
@@ -152,64 +134,14 @@ fun BottomControlPanel(
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            // Row 3: Mission buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                PanelButton("START", enabled = startEnabled, isPrimary = true) {
-                    val pid = buildPidStringAndClear()
-                    connectionViewModel.sendStart(pid.ifEmpty { null })
-                }
-                PanelButton("CANCEL", enabled = initialized, isDestructive = true) {
-                    connectionViewModel.sendCancel()
-                }
-                PanelButton("MANUAL", enabled = manualEnabled) {
-                    connectionViewModel.sendMode(Command.SetMode.Mode.MANUAL)
-                }
-                PanelButton("AUTO", enabled = autoEnabled) {
-                    connectionViewModel.sendMode(Command.SetMode.Mode.AUTO)
-                }
-            }
-
-            // Row 4: Speed + Targets
+            // Row 3: Speed + Target dropdowns
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("SPEED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SpeedButton("12", enabled = initialized && flightState.spd != 12f) { connectionViewModel.sendSpeed(12f) }
-                        SpeedButton("19", enabled = initialized && flightState.spd != 19f) { connectionViewModel.sendSpeed(19f) }
-                        SpeedButton("22", enabled = initialized && flightState.spd != 22f) { connectionViewModel.sendSpeed(22f) }
-                    }
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("TARGET", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TargetIconButton(R.drawable.ic_person, "Person", enabled = initialized && flightState.cls != 0) {
-                            connectionViewModel.sendClass(Command.SetClass.TargetClass.PERSON)
-                        }
-                        TargetIconButton(R.drawable.ic_car, "Car", enabled = initialized && flightState.cls != 2) {
-                            connectionViewModel.sendClass(Command.SetClass.TargetClass.CAR)
-                        }
-                        TargetIconButton(R.drawable.ic_balloon, "Balloon", enabled = initialized && flightState.cls != 3) {
-                            connectionViewModel.sendClass(Command.SetClass.TargetClass.BALLOON)
-                        }
-                        TargetIconButton(R.drawable.ic_drone, "UAV", enabled = initialized && flightState.cls != 4) {
-                            connectionViewModel.sendClass(Command.SetClass.TargetClass.UAV)
-                        }
-                    }
-                }
+                SpeedDropdown(flightState = flightState, connectionViewModel = connectionViewModel)
+                TargetDropdown(flightState = flightState, connectionViewModel = connectionViewModel)
             }
         }
     }
@@ -284,114 +216,122 @@ private fun MiniPidField(
     )
 }
 
+private data class TargetChoice(
+    val cls: Int,
+    val label: String,
+    val iconRes: Int,
+    val target: Command.SetClass.TargetClass
+)
+
+private val targetChoices = listOf(
+    TargetChoice(0, "Person", R.drawable.ic_person, Command.SetClass.TargetClass.PERSON),
+    TargetChoice(2, "Car", R.drawable.ic_car, Command.SetClass.TargetClass.CAR),
+    TargetChoice(3, "Balloon", R.drawable.ic_balloon, Command.SetClass.TargetClass.BALLOON),
+    TargetChoice(4, "UAV", R.drawable.ic_drone, Command.SetClass.TargetClass.UAV)
+)
+
+/**
+ * Speed preset dropdown (12 / 19 / 22 m/s). Sends the chosen speed immediately.
+ */
 @Composable
-private fun PanelButton(
-    text: String,
-    enabled: Boolean = true,
-    isPrimary: Boolean = false,
-    isDestructive: Boolean = false,
-    onClick: () -> Unit
+private fun SpeedDropdown(
+    flightState: FlightState,
+    connectionViewModel: ConnectionViewModel
 ) {
-    val colors = when {
-        isPrimary -> ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF2E7D32),
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFF2E7D32).copy(alpha = 0.35f)
-        )
-        isDestructive -> ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFC62828),
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFFC62828).copy(alpha = 0.35f)
-        )
-        else -> ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
-    }
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .width(62.dp)
-            .height(32.dp),
-        colors = colors,
-        shape = RoundedCornerShape(6.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.sp
-        )
+    val options = listOf(12f, 19f, 22f)
+    var menuOpen by remember { mutableStateOf(false) }
+    val current = if (flightState.spd in options) flightState.spd else options.first()
+
+    Box {
+        OutlinedButton(
+            onClick = { menuOpen = true },
+            enabled = flightState.initialized,
+            modifier = Modifier.height(38.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "SPEED %.0f".format(current),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            options.forEach { s ->
+                DropdownMenuItem(
+                    text = { Text("%.0f m/s".format(s), fontWeight = FontWeight.Bold) },
+                    onClick = {
+                        menuOpen = false
+                        connectionViewModel.sendSpeed(s)
+                    }
+                )
+            }
+        }
     }
 }
 
+/**
+ * Target class dropdown (Person / Car / Balloon / UAV) with per-option icons.
+ * Sends the chosen target class immediately.
+ */
 @Composable
-private fun SpeedButton(
-    text: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit
+private fun TargetDropdown(
+    flightState: FlightState,
+    connectionViewModel: ConnectionViewModel
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .width(34.dp)
-            .height(30.dp),
-        shape = RoundedCornerShape(6.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.sp
-        )
-    }
-}
+    var menuOpen by remember { mutableStateOf(false) }
+    val current = targetChoices.firstOrNull { it.cls == flightState.cls } ?: targetChoices.first()
 
-@Composable
-private fun TargetIconButton(
-    iconRes: Int,
-    label: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(38.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+    Box {
+        OutlinedButton(
+            onClick = { menuOpen = true },
+            enabled = flightState.initialized,
+            modifier = Modifier.height(38.dp),
+            shape = RoundedCornerShape(8.dp)
         ) {
             Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = label,
+                painter = painterResource(current.iconRes),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
+            Spacer(Modifier.width(4.dp))
             Text(
-                text = label,
+                text = current.label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 6.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
             )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            targetChoices.forEach { choice ->
+                DropdownMenuItem(
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(choice.iconRes),
+                            contentDescription = choice.label,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    text = { Text(choice.label) },
+                    onClick = {
+                        menuOpen = false
+                        connectionViewModel.sendClass(choice.target)
+                    }
+                )
+            }
         }
     }
 }

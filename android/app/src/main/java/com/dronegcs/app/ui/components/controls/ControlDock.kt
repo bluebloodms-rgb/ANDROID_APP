@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,14 +33,16 @@ import androidx.compose.ui.unit.sp
  *
  * [expand] | START | CANCEL | MODE
  *
- * The full PID / speed / target panel lives in a ModalBottomSheet opened by [onExpandClick];
- * MODE toggles MANUAL <-> AUTO in one tap.
+ * The full PID / speed / target panel slides up above this dock (slider-style),
+ * toggled by [onExpandClick]; [expanded] flips the chevron. MODE toggles
+ * MANUAL <-> AUTO in one tap.
  */
 @Composable
 fun ControlDock(
     modifier: Modifier = Modifier,
     isConnected: Boolean,
     modeName: String,
+    expanded: Boolean = false,
     onStartClick: () -> Unit,
     onCancelClick: () -> Unit,
     onModeClick: () -> Unit,
@@ -63,7 +66,7 @@ fun ControlDock(
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                     contentDescription = "More controls",
                     tint = Color(0xFFFFD700),
                     modifier = Modifier.size(28.dp)

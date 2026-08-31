@@ -1,7 +1,6 @@
 package com.dronegcs.app.viewmodel
 
 import android.content.Context
-import androidx.camera.core.CameraSelector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dronegcs.app.data.camera.CameraXPreviewRepository
@@ -56,10 +55,6 @@ class CameraViewModel @Inject constructor(
     val rtspBuffering = rtspRepository.buffering
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    // Current camera facing
-    private val _cameraFacing = MutableStateFlow(CameraSelector.LENS_FACING_BACK)
-    val cameraFacing = _cameraFacing.asStateFlow()
-
     // Default RTSP URL
     private val _defaultRtspUrl = MutableStateFlow("")
     val defaultRtspUrl = _defaultRtspUrl.asStateFlow()
@@ -77,7 +72,6 @@ class CameraViewModel @Inject constructor(
         // Start new source
         when (source) {
             is VideoSource.PhoneCamera -> {
-                _cameraFacing.value = source.facing
                 persistVideoSource(settingsRepository.VIDEO_SOURCE_CAMERA, null, source.facing)
                 // Note: bindToPreviewView called from UI with lifecycle
             }
@@ -108,9 +102,9 @@ class CameraViewModel @Inject constructor(
                     }
                     Timber.w("Saved video source is RTSP but URL is empty; falling back to camera")
                 }
-                val facing = settingsRepository.getDefaultCameraFacing()
-                Timber.i("Restoring saved video source: phone camera (facing=$facing)")
-                setVideoSource(VideoSource.PhoneCamera(facing = facing))
+                // Front/back switching was removed from the UI: always restore the back camera.
+                Timber.i("Restoring saved video source: phone camera")
+                setVideoSource(VideoSource.PhoneCamera())
             } catch (e: Exception) {
                 Timber.w(e, "Failed to restore saved video source; using default camera")
                 setVideoSource(VideoSource.PhoneCamera())
@@ -144,19 +138,6 @@ class CameraViewModel @Inject constructor(
     fun bindRtspPlayerView(playerView: androidx.media3.ui.PlayerView) {
         if (_videoSource.value is VideoSource.RtspStream) {
             rtspRepository.bindToPlayerView(playerView)
-        }
-    }
-
-    fun switchCamera() {
-        val currentSource = _videoSource.value
-        if (currentSource is VideoSource.PhoneCamera) {
-            val newFacing = if (currentSource.facing == CameraSelector.LENS_FACING_BACK) {
-                CameraSelector.LENS_FACING_FRONT
-            } else {
-                CameraSelector.LENS_FACING_BACK
-            }
-            val newSource = VideoSource.PhoneCamera(cameraIndex = currentSource.cameraIndex, facing = newFacing)
-            setVideoSource(newSource)
         }
     }
 

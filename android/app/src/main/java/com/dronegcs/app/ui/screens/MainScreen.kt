@@ -9,6 +9,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,11 +40,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -148,7 +148,7 @@ fun MainScreen(
 
     // Mobile-first collapsible panels
     var showPitchPanel by remember { mutableStateOf(false) }
-    var showControlSheet by remember { mutableStateOf(false) }
+    var showControlPanel by remember { mutableStateOf(false) }
     var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
     var lastSentPitch by remember { mutableStateOf(0f) }
     LaunchedEffect(flightState.pitch) { flightState.pitch?.let { displayPitch = it } }
@@ -216,8 +216,7 @@ fun MainScreen(
                 showConnectDialog = true
             },
             onDisconnectClick = { connectionViewModel.disconnect() },
-            onSettingsClick = onOpenSettings,
-            onSwitchCameraClick = { cameraViewModel.switchCamera() }
+            onSettingsClick = onOpenSettings
         )
 
         // Left edge handle: toggle the collapsible pitch slider
@@ -271,21 +270,40 @@ fun MainScreen(
             onReset = { resetZoom() }
         )
 
-        // Bottom: slim control dock (full panel lives in the bottom sheet)
-        ControlDock(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            isConnected = isConnected,
-            modeName = flightState.modeName,
-            onStartClick = { connectionViewModel.sendStart(null) },
-            onCancelClick = { connectionViewModel.sendCancel() },
-            onModeClick = {
-                connectionViewModel.sendMode(
-                    if (flightState.md == 1) Command.SetMode.Mode.AUTO
-                    else Command.SetMode.Mode.MANUAL
+        // Bottom: collapsible control panel (slides up like the pitch slider)
+        // + slim control dock. The dock chevron toggles the panel.
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            AnimatedVisibility(
+                visible = showControlPanel,
+                enter = slideInVertically(initialOffsetY = { it }),
+                exit = slideOutVertically(targetOffsetY = { it })
+            ) {
+                BottomControlPanel(
+                    connectionViewModel = connectionViewModel,
+                    flightState = flightState,
+                    isConnected = isConnected
                 )
-            },
-            onExpandClick = { showControlSheet = true }
-        )
+            }
+            ControlDock(
+                modifier = Modifier.fillMaxWidth(),
+                isConnected = isConnected,
+                modeName = flightState.modeName,
+                expanded = showControlPanel,
+                onStartClick = { connectionViewModel.sendStart(null) },
+                onCancelClick = { connectionViewModel.sendCancel() },
+                onModeClick = {
+                    connectionViewModel.sendMode(
+                        if (flightState.md == 1) Command.SetMode.Mode.AUTO
+                        else Command.SetMode.Mode.MANUAL
+                    )
+                },
+                onExpandClick = { showControlPanel = !showControlPanel }
+            )
+        }
 
         if (isConnecting) {
             Row(
@@ -312,26 +330,6 @@ fun MainScreen(
             connectionViewModel = connectionViewModel,
             onDismiss = { showConnectDialog = false }
         )
-    }
-
-    if (showControlSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showControlSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = 24.dp)
-            ) {
-                BottomControlPanel(
-                    connectionViewModel = connectionViewModel,
-                    flightState = flightState,
-                    isConnected = isConnected
-                )
-            }
-        }
     }
 }
 

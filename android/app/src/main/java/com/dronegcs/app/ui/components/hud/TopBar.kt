@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -45,8 +44,7 @@ fun TopBar(
     flightState: FlightState,
     onConnectClick: () -> Unit,
     onDisconnectClick: () -> Unit,
-    onSettingsClick: () -> Unit = {},
-    onSwitchCameraClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {}
 ) {
     val connection = flightState.connectionState
     val isConnected = connection is ConnectionState.Connected
@@ -114,14 +112,6 @@ fun TopBar(
                 )
             }
 
-            IconButton(onClick = onSwitchCameraClick, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Cameraswitch,
-                    contentDescription = "Switch camera",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
             IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
                 Icon(
                     imageVector = Icons.Default.Settings,
