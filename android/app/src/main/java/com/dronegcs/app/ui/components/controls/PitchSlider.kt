@@ -37,6 +37,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.PanelHairline
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.PhosphorGreenDim
 import com.dronegcs.app.ui.theme.scaled
 import androidx.compose.ui.unit.sp
 
@@ -87,9 +93,9 @@ fun PitchSlider(
                 .clip(RoundedCornerShape(10.dp.scaled()))
                 .background(
                     Brush.verticalGradient(
-                        0f to Color(0xFFFF4444),   // +90 (top)
-                        0.5f to Color(0xFF9B59B6),
-                        1f to Color(0xFF00BFFF)    // -90 (bottom)
+                        0f to AlertRed,   // +90 (top)
+                        0.5f to PhosphorGreenDim,
+                        1f to PhosphorGreen    // -90 (bottom)
                     )
                 )
                 .pointerInput(currentEnabled) {
@@ -128,7 +134,7 @@ fun PitchSlider(
 
         Text(
             text = "%.0f\u00b0".format(pitch),
-            color = Color(0xFFFFD700),
+            color = AvionicsAmber,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold

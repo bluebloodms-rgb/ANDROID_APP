@@ -1,4 +1,4 @@
-# HANDOFF — AI-Session Status (NEW)
+n# HANDOFF — AI-Session Status (NEW)
 
 > **Read this file first.** It is the single source of truth for the current state of the
 > Android GCS port. Older docs (`HANDOFF.md`, `projects_status.md`) are historical.

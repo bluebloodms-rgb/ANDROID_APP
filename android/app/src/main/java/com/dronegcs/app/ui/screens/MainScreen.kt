@@ -68,6 +68,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.text.KeyboardOptions
 import com.dronegcs.app.domain.model.Command
+import com.dronegcs.app.ui.theme.BackgroundDark
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
 import com.dronegcs.app.ui.theme.UiScaleContainer
 import com.dronegcs.app.domain.model.ConnectionUiState
 import com.dronegcs.app.domain.model.VideoSource
@@ -230,7 +235,7 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0x59000000))
+                    .background(BackgroundDark.copy(alpha = 0.55f))
                     .clickable(
                         indication = null,
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -254,7 +259,7 @@ fun MainScreen(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .background(
-                    Color(0xAA000000),
+                    PanelTranslucent,
                     RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 0.dp)
                 )
                 .clickable { showPitchPanel = !showPitchPanel }
@@ -291,7 +296,7 @@ fun MainScreen(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .background(
-                    Color(0xAA000000),
+                    PanelTranslucent,
                     RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 0.dp)
                 )
                 .clickable { showZoomPanel = !showZoomPanel }

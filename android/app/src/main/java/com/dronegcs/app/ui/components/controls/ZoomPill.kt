@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.dronegcs.app.ui.components.hud.ChamferShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
@@ -22,6 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.PanelHairline
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.PhosphorGreenDim
 import com.dronegcs.app.ui.theme.scaled
 import androidx.compose.ui.unit.sp
 
@@ -40,9 +47,9 @@ fun ZoomPill(
 ) {
     Surface(
         modifier = modifier.width(46.dp.scaled()),
-        shape = RoundedCornerShape(22.dp.scaled()),
-        color = Color(0xCC000000),
-        border = BorderStroke(1.dp.scaled(), Color(0xFFFF8C00))
+        shape = ChamferShape(10.dp.scaled()),
+        color = PanelTranslucent,
+        border = BorderStroke(1.dp.scaled(), AvionicsAmber)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -53,7 +60,7 @@ fun ZoomPill(
             Text(
                 text = "%.1fX".format(zoom),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFFFD700),
+                color = AvionicsAmber,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp
             )

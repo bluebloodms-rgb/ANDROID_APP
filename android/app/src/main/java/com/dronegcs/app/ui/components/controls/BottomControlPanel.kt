@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.dronegcs.app.ui.components.hud.ChamferShape
+import com.dronegcs.app.ui.theme.TextPrimary
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -46,6 +48,12 @@ import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
 import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.domain.model.FlightState
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.PanelHairline
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.PhosphorGreenDim
 import com.dronegcs.app.ui.theme.scaled
 import com.dronegcs.app.viewmodel.ConnectionViewModel
 
@@ -104,7 +112,7 @@ fun BottomControlPanel(
 
     Surface(
         modifier = modifier,
-        color = Color(0xCC151515),
+        color = PanelTranslucent,
         shape = RoundedCornerShape(topStart = 18.dp.scaled(), topEnd = 18.dp.scaled()),
         shadowElevation = 12.dp
     ) {
@@ -220,11 +228,11 @@ private fun MiniPidField(
         textStyle = MaterialTheme.typography.bodySmall.copy(
             fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
-            color = Color.Black
+            color = TextPrimary
         ),
         modifier = Modifier
             .size(width = 34.dp.scaled(), height = 38.dp.scaled())
-            .background(Color(0xFFE8E8E8), RoundedCornerShape(4.dp.scaled()))
+            .background(PanelTranslucent, RoundedCornerShape(4.dp.scaled()))
             .padding(horizontal = 3.dp),
         decorationBox = { innerTextField ->
             Box(
@@ -283,7 +291,7 @@ private fun SpeedDropdown(
             onClick = { menuOpen = true },
             enabled = flightState.initialized,
             modifier = Modifier.height(38.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = ChamferShape(6.dp)
         ) {
             Text(
                 text = "SPEED %.0f".format(current),
@@ -336,7 +344,7 @@ private fun TargetDropdown(
             onClick = { menuOpen = true },
             enabled = flightState.initialized,
             modifier = Modifier.height(38.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = ChamferShape(6.dp)
         ) {
             Icon(
                 painter = painterResource(current.iconRes),

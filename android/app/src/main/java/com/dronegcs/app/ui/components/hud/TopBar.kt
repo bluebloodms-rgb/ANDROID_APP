@@ -33,6 +33,14 @@ import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
 import com.dronegcs.app.domain.model.ConnectionState
 import com.dronegcs.app.domain.model.FlightState
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.PanelHairline
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.PhosphorGreenDim
+import com.dronegcs.app.ui.components.hud.ChamferShape
+import com.dronegcs.app.ui.theme.BackgroundDark
 import com.dronegcs.app.ui.theme.scaled
 
 /**
@@ -53,7 +61,7 @@ fun TopBar(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color(0xB3000000)
+        color = BackgroundDark.copy(alpha = 0.85f)
     ) {
         Row(
             modifier = Modifier
@@ -75,8 +83,8 @@ fun TopBar(
             // TOP BAR ONLY — the bottom dock shows Manual/Auto from STATUSTEXT Md.
             flightState.fcModeName?.let { mode ->
                 Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp.scaled()),
-                    color = if (flightState.isArmed) Color(0xFF2E7D32) else Color(0xFF37474F)
+                    shape = ChamferShape(6.dp.scaled()),
+                    color = if (flightState.isArmed) PhosphorGreenDim else PanelHairline
                 ) {
                     Text(
                         text = mode,
@@ -116,7 +124,7 @@ fun TopBar(
             TextButton(
                 onClick = if (isConnected) onDisconnectClick else onConnectClick,
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = if (isConnected) Color(0xFFFF5252) else Color(0xFF00BFFF)
+                    contentColor = if (isConnected) AlertRed else PhosphorGreen
                 )
             ) {
                 Text(

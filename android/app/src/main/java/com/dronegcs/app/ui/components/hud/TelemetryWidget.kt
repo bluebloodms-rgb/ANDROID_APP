@@ -29,8 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.AlertRed
 import com.dronegcs.app.ui.theme.ElectricBlue
+import com.dronegcs.app.ui.theme.PanelHairline
 import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
 
 /**
  * Individual telemetry widget for the top bar
@@ -47,9 +51,9 @@ fun TelemetryWidget(
     Surface(
         modifier = modifier
             .padding(horizontal = 4.dp, vertical = 4.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        shape = ChamferShape(8.dp),
         color = PanelTranslucent,
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, PanelHairline)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -104,9 +108,9 @@ fun ConnectionStatusBadge(
     deviceName: String? = null
 ) {
     val (color, text) = when {
-        isConnected -> androidx.compose.ui.graphics.Color(0xFF00BFFF) to (deviceName ?: "Connected")
-        isConnecting -> androidx.compose.ui.graphics.Color(0xFFFF8C00) to "◐ Connecting..."
-        else -> androidx.compose.ui.graphics.Color(0xFFFF4444) to "○ Disconnected"
+        isConnected -> PhosphorGreen to (deviceName ?: "LINK")
+        isConnecting -> AvionicsAmber to "◐ SYNC..."
+        else -> AlertRed to "○ NO LINK"
     }
 
     // "Alive" pulse: the single dot gently grows/shrinks while connected.
@@ -126,9 +130,9 @@ fun ConnectionStatusBadge(
         modifier = Modifier
             .padding(horizontal = 8.dp)
             .height(28.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-        color = androidx.compose.ui.graphics.Color(0xCC000000),
-        border = BorderStroke(1.dp, color)
+        shape = ChamferShape(8.dp),
+        color = PanelTranslucent,
+        border = BorderStroke(1.dp, PanelHairline)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp),
@@ -158,8 +162,8 @@ fun ConnectionStatusBadge(
 @Composable
 fun ModeBadge(mode: String) {
     val (color, bgColor) = when (mode.uppercase()) {
-        "MANUAL" -> androidx.compose.ui.graphics.Color(0xFF00BFFF) to androidx.compose.ui.graphics.Color(0xCC00BFFF)
-        "AUTO", "AUTOMATIC" -> androidx.compose.ui.graphics.Color(0xFFFF8C00) to androidx.compose.ui.graphics.Color(0xCCFF8C00)
+        "MANUAL" -> PhosphorGreen to PhosphorGreen.copy(alpha = 0.8f)
+        "AUTO", "AUTOMATIC" -> AvionicsAmber to AvionicsAmber.copy(alpha = 0.8f)
         else -> androidx.compose.ui.graphics.Color(0xFF888888) to androidx.compose.ui.graphics.Color(0xCC888888)
     }
 

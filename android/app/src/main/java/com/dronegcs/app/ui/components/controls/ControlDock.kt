@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.dronegcs.app.ui.components.hud.ChamferShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -27,6 +28,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dronegcs.app.ui.theme.AlertRed
+import com.dronegcs.app.ui.theme.AvionicsAmber
+import com.dronegcs.app.ui.theme.PanelHairline
+import com.dronegcs.app.ui.theme.PanelTranslucent
+import com.dronegcs.app.ui.theme.PhosphorGreen
+import com.dronegcs.app.ui.theme.PhosphorGreenDim
 import com.dronegcs.app.ui.theme.scaled
 
 /**
@@ -51,7 +58,7 @@ fun ControlDock(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color(0xCC000000)
+        color = PanelTranslucent
     ) {
         Row(
             modifier = Modifier
@@ -69,21 +76,21 @@ fun ControlDock(
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                     contentDescription = "More controls",
-                    tint = Color(0xFFFFD700),
+                    tint = AvionicsAmber,
                     modifier = Modifier.size(28.dp.scaled())
                 )
             }
 
             DockButton(
                 text = "START",
-                container = Color(0xFF1E8E3E),
+                container = PhosphorGreenDim,
                 enabled = isConnected,
                 onClick = onStartClick,
                 modifier = Modifier.weight(1f)
             )
             DockButton(
                 text = "CANCEL",
-                container = Color(0xFFC5221F),
+                container = AlertRed,
                 enabled = isConnected,
                 onClick = onCancelClick,
                 modifier = Modifier.weight(1f)
@@ -92,8 +99,8 @@ fun ControlDock(
                 text = modeName,
                 container = Color.Transparent,
                 enabled = isConnected,
-                border = BorderStroke(1.dp, Color(0xFFFF8C00)),
-                textColor = Color(0xFFFFD700),
+                border = BorderStroke(1.dp, AvionicsAmber),
+                textColor = AvionicsAmber,
                 onClick = onModeClick,
                 modifier = Modifier.weight(1f)
             )
@@ -117,7 +124,7 @@ private fun DockButton(
         modifier = modifier
             .width(120.dp.scaled())
             .height(44.dp.scaled()),
-        shape = RoundedCornerShape(12.dp.scaled()),
+        shape = ChamferShape(8.dp.scaled()),
         border = border,
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
