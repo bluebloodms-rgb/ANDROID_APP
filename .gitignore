@@ -1,10 +1,66 @@
-output/
+```
+# Android build artifacts
+*.apk
+*.aar
+*.so
+*.dex
+
+# Android build directories
 build/
-dist/
-*.spec
+.externalNativeBuild/
+.cxx/
+
+# Gradle
+.gradle/
+!gradle.properties
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log Files
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Built application files
+bin/
+gen/
+obj/
+
+# Python
 __pycache__/
-*.pyc
-venv/
-.venv/
-.vscode/
+*.py[cod]
+*$py.class
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
 .idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Temporary folders
+tmp/
+temp/
+```
