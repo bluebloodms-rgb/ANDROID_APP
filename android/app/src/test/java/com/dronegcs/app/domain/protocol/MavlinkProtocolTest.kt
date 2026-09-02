@@ -18,9 +18,9 @@ class MavlinkProtocolTest {
         // incompat/compat flags zero (unsigned)
         assertEquals(0, frame[2].toInt())
         assertEquals(0, frame[3].toInt())
-        // sysId and compId
-        assertEquals(1, frame[5].toInt())
-        assertEquals(1, frame[6].toInt())
+        // sysId and compId — GCS identity 255/190 (must not equal vehicle sysId=1)
+        assertEquals(255, frame[5].toInt() and 0xFF)
+        assertEquals(190, frame[6].toInt() and 0xFF)
         // msgId little endian 24-bit at offset 7
         val msgId = (frame[7].toInt() and 0xFF) or
             ((frame[8].toInt() and 0xFF) shl 8) or
@@ -111,11 +111,12 @@ class MavlinkProtocolTest {
     }
 
     @Test
-    fun `decodeStatustextPayload rejects non-info severity`() {
+    fun `decodeStatustextPayload accepts non-info severity`() {
         val payload = ByteArray(10)
         payload[0] = 3
 
-        assertNull(MavlinkProtocol.decodeStatustextPayload(payload))
+        // Severity filtering was removed: FC replies with WARNING/ERROR texts too.
+        assertEquals("", MavlinkProtocol.decodeStatustextPayload(payload))
     }
 
     @Test

@@ -40,10 +40,10 @@ class CommandTest {
 
     @Test
     fun `target class from int maps known values`() {
-        assertEquals(Command.SetClass.TargetClass.PERSON, Command.SetClass.TargetClass.fromInt(0))
+        assertEquals(Command.SetClass.TargetClass.BALLOON, Command.SetClass.TargetClass.fromInt(0))
+        assertEquals(Command.SetClass.TargetClass.PERSON, Command.SetClass.TargetClass.fromInt(1))
         assertEquals(Command.SetClass.TargetClass.CAR, Command.SetClass.TargetClass.fromInt(2))
-        assertEquals(Command.SetClass.TargetClass.BALLOON, Command.SetClass.TargetClass.fromInt(3))
-        assertEquals(Command.SetClass.TargetClass.UAV, Command.SetClass.TargetClass.fromInt(4))
+        assertEquals(Command.SetClass.TargetClass.DRONE, Command.SetClass.TargetClass.fromInt(3))
     }
 
     @Test
