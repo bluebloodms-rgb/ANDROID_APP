@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dronegcs.app.ui.theme.scaled
 
 /**
  * Mobile-first slim bottom dock (replaces the always-visible Windows-style panel).
@@ -56,20 +57,20 @@ fun ControlDock(
             modifier = Modifier
                 .navigationBarsPadding()
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 8.dp),
+                .height(64.dp.scaled())
+                .padding(horizontal = 8.dp.scaled()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp.scaled())
         ) {
             IconButton(
                 onClick = onExpandClick,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(44.dp.scaled())
             ) {
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                     contentDescription = "More controls",
                     tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(28.dp.scaled())
                 )
             }
 
@@ -114,9 +115,9 @@ private fun DockButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
-            .width(120.dp)
-            .height(44.dp),
-        shape = RoundedCornerShape(12.dp),
+            .width(120.dp.scaled())
+            .height(44.dp.scaled()),
+        shape = RoundedCornerShape(12.dp.scaled()),
         border = border,
         colors = ButtonDefaults.buttonColors(
             containerColor = container,

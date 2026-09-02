@@ -34,18 +34,18 @@ sealed interface Command {
     /**
      * Set target class
      * Format: "CLASS:{cls},Notcare:{cls}"
-     * 0 = Person, 2 = Car, 3 = Balloon, 4 = UAV
+     * Class numbers (matching the Windows app): Balloon = 0, Person = 1, Car = 2, Drone = 3
      */
     data class SetClass(val targetClass: TargetClass) : Command {
         enum class TargetClass(val value: Int) {
-            PERSON(0), CAR(2), BALLOON(3), UAV(4);
+            BALLOON(0), PERSON(1), CAR(2), DRONE(3);
 
             companion object {
                 fun fromInt(value: Int): TargetClass = when (value) {
-                    0 -> PERSON
+                    0 -> BALLOON
+                    1 -> PERSON
                     2 -> CAR
-                    3 -> BALLOON
-                    4 -> UAV
+                    3 -> DRONE
                     else -> PERSON
                 }
             }

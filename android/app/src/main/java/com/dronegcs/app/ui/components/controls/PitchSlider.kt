@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dronegcs.app.ui.theme.scaled
 import androidx.compose.ui.unit.sp
 
 /**
@@ -65,13 +66,13 @@ fun PitchSlider(
 
     var trackHeightPx by remember { mutableStateOf(1f) }
     val density = LocalDensity.current
-    val thumbSizeDp = 34.dp
+    val thumbSizeDp = 34.dp.scaled()
     val thumbSizePx = with(density) { thumbSizeDp.toPx() }
 
     Column(
-        modifier = modifier.padding(vertical = 10.dp),
+        modifier = modifier.padding(vertical = 10.dp.scaled()),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp.scaled())
     ) {
         StepButton(
             icon = Icons.Default.ExpandLess,
@@ -82,8 +83,8 @@ fun PitchSlider(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .width(30.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .width(30.dp.scaled())
+                .clip(RoundedCornerShape(10.dp.scaled()))
                 .background(
                     Brush.verticalGradient(
                         0f to Color(0xFFFF4444),   // +90 (top)
@@ -122,15 +123,7 @@ fun PitchSlider(
                     .size(thumbSizeDp)
                     .clip(CircleShape)
                     .background(Color.White)
-                    .padding(4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(Color(0xFF00BFFF))
-                )
-            }
+            )
         }
 
         Text(
@@ -156,12 +149,12 @@ private fun StepButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(34.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(44.dp.scaled())) {
         Icon(
             imageVector = icon,
             contentDescription = description,
             tint = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(22.dp.scaled())
         )
     }
 }

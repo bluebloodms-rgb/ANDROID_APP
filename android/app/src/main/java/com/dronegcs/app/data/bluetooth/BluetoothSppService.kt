@@ -142,6 +142,7 @@ class BluetoothSppService : Service() {
                     link.publishState(ConnectionState.Connected(device.name ?: "Unknown", device.address))
                     Timber.d("Connected to ${device.name} (${device.address})")
                     startReadLoop()
+                    startWriteWorker()
                     updateNotification()
                 } catch (e: IOException) {
                     Timber.e(e, "Connection failed")
@@ -181,6 +182,7 @@ class BluetoothSppService : Service() {
             val accumulatedBuffer = java.io.ByteArrayOutputStream()
             var loggedFirstRx = false
             var rxDumpCount = 0
+            var lastRxDumpMs = 0L
 
             while (isConnected && coroutineContext.isActive) {
                 try {
@@ -190,12 +192,15 @@ class BluetoothSppService : Service() {
                             Timber.d("First data received from flight controller: $bytesRead bytes")
                             loggedFirstRx = true
                         }
-                        // DEBUG: hex dump of the first few chunks to identify wire format
-                        if (rxDumpCount < 6) {
+                        // DEBUG: hex dump of the first few chunks, throttled to at
+                        // most one dump per 2s so RX logging can't flood logcat
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        if (rxDumpCount < 6 && now - lastRxDumpMs >= 2000) {
                             val hex = buffer.copyOfRange(0, bytesRead)
                                 .joinToString(" ") { "%02X".format(it) }
                             Timber.d("RX#%d (%d bytes): %s", rxDumpCount + 1, bytesRead, hex)
                             rxDumpCount++
+                            lastRxDumpMs = now
                         }
                         accumulatedBuffer.write(buffer, 0, bytesRead)
                         // Emit accumulated data for MAVLink parsing

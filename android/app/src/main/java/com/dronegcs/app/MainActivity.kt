@@ -27,12 +27,21 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val settingsViewModel = viewModel<SettingsViewModel>()
+                    // Tri-state: null while DataStore loads. Hold on the (empty)
+                    // splash surface until known, so the welcome screen only ever
+                    // appears on the genuine first run — not on every launch.
                     val isFirstRun by settingsViewModel.isFirstRun.collectAsStateWithLifecycle()
 
-                    AppNavHost(
-                        startDestination = if (isFirstRun) NavigationDestinations.ONBOARDING else NavigationDestinations.MAIN,
-                        settingsViewModel = settingsViewModel
-                    )
+                    if (isFirstRun != null) {
+                        AppNavHost(
+                            startDestination = if (isFirstRun == true) {
+                                NavigationDestinations.ONBOARDING
+                            } else {
+                                NavigationDestinations.MAIN
+                            },
+                            settingsViewModel = settingsViewModel
+                        )
+                    }
                 }
             }
         }

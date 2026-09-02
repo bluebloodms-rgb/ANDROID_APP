@@ -27,6 +27,18 @@ class MavlinkFlightRepository(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
 
+    // Vehicle identity on the MAVLink wire, discovered at runtime by locking onto
+    // the first HEARTBEAT whose MAV_TYPE is an aerial vehicle. Hardcoding
+    // sysId=1/compId=1 broke the mode chip on setups where the FC uses other IDs.
+    private companion object {
+        // MAV_TYPE values that identify a drone: FIXED_WING=1, QUADROTOR=2,
+        // COAXIAL=3, HELICOPTER=4, HEXAROTOR=13, OCTOROTOR=14, TRICOPTOR=15.
+        val VEHICLE_MAV_TYPES = setOf(1, 2, 3, 4, 13, 14, 15)
+    }
+
+    @Volatile private var vehicleSysId: Int? = null
+    @Volatile private var vehicleCompId: Int? = null
+
     // Current flight state
     private val _flightState = MutableStateFlow(FlightState())
     val flightState = _flightState.asStateFlow()
@@ -40,12 +52,10 @@ class MavlinkFlightRepository(
     // Jobs
     private var parseJob: Job? = null
     private var heartbeatWatchdogJob: Job? = null
-    private var modePollJob: Job? = null
 
     init {
         startParsing()
         startHeartbeatWatchdog()
-        startModePoll()
         observeRawData()
         observeLinkConnectionState()
     }
@@ -57,30 +67,56 @@ class MavlinkFlightRepository(
     private fun observeLinkConnectionState() {
         scope.launch {
             link.connectionState.collect { state ->
+                if (!state.isConnected()) {
+                    // Re-arm the vehicle lock-on so the next connection re-identifies
+                    // the FC (its sysId/compId may change between sessions).
+                    vehicleSysId = null
+                    vehicleCompId = null
+                }
                 _flightState.update { it.copy(connectionState = state, initialized = true) }
             }
         }
     }
 
     /**
-     * Send a command to the flight controller
-     * Implements retry logic: 5 attempts with 50ms delay
+     * Send a command to the flight controller.
+     *
+     * All commands use the custom STATUSTEXT protocol — identical to the working
+     * Windows/desktop app (see core/flight_interface.py send_start/send_cancel etc.).
+     * START = STATUSTEXT "START:TRUE[,pid...]", CANCEL = "CANCEL:TRUE,Notcare:TRUE".
+     * Do NOT send COMMAND_LONG (ARM/TAKEOFF/RTL) here: the FC consumes the custom
+     * STATUSTEXT protocol and COMMAND_LONG would actually arm/move the vehicle.
      */
     suspend fun sendCommand(command: Command): Boolean {
-        val text = command.toStatustextString()
-        val frame = MavlinkProtocol.encodeStatustext(text)
+        val frames = listOf(MavlinkProtocol.encodeStatustext(command.toStatustextString()))
 
+        var allSent = false
+        frames.forEach { frame ->
+            val ok = sendFrameWithRetry(frame)
+            if (ok && !allSent) allSent = true
+            if (frame.size > 14) {
+                val isCmd = frame[7].toInt() == MavlinkProtocol.MSG_ID_COMMAND_LONG
+                Timber.d(if (isCmd) "Sent COMMAND_LONG frame (${frame.size} bytes)" else "Sent STATUSTEXT: ${command.toStatustextString()}")
+            }
+        }
+        return allSent
+    }
+
+    /**
+     * Send one raw MAVLink frame with retry logic: 5 attempts with 50ms delay
+     */
+    private suspend fun sendFrameWithRetry(frame: ByteArray): Boolean {
         repeat(5) { attempt ->
             try {
                 link.sendRaw(frame)
-                Timber.d("Sent command (attempt ${attempt + 1}): $text")
+                if (attempt > 0) Timber.d("Resent frame (attempt ${attempt + 1})")
                 return true
             } catch (e: Exception) {
                 Timber.w(e, "Send attempt ${attempt + 1} failed")
                 if (attempt < 4) delay(50)
             }
         }
-        Timber.e("Failed to send command after 5 retries: $text")
+        Timber.e("Failed to send frame after 5 retries")
         return false
     }
 
@@ -159,10 +195,43 @@ class MavlinkFlightRepository(
     }
 
     private fun processMavlinkMessage(message: MavlinkMessage) {
+        // Lock onto the vehicle by MAV_TYPE, not by hardcoded sysId/compId:
+        // other components on the wire (SIYI gimbal, companion, ...) also emit
+        // HEARTBEATs with different custom_mode values, which made the flight
+        // mode chip fluctuate between e.g. GUIDED / STABILIZE.
+        if (message.msgId == 0) { // HEARTBEAT
+            val mavType = message.payload.getOrNull(4)?.toInt()?.and(0xFF)
+            val lockedSys = vehicleSysId
+            if (lockedSys == null) {
+                if (mavType != null && mavType in VEHICLE_MAV_TYPES) {
+                    vehicleSysId = message.sysId
+                    vehicleCompId = message.compId
+                    Timber.i("Locked onto vehicle: sys=%d comp=%d mavType=%d", message.sysId, message.compId, mavType)
+                } else {
+                    Timber.v("Ignored HEARTBEAT from sys=%d comp=%d mavType=%s (not an aerial vehicle)", message.sysId, message.compId, mavType)
+                    return
+                }
+            } else if (message.sysId != lockedSys) {
+                Timber.v("Ignored HEARTBEAT from sys=%d (vehicle is sys=%d)", message.sysId, lockedSys)
+                return
+            }
+            processHeartbeat(message)
+            return
+        }
+        val vsid = vehicleSysId
+        if (vsid == null || message.sysId != vsid) {
+            Timber.v("Ignored MAVLink msg id=%d from sys=%d comp=%d (not the vehicle)", message.msgId, message.sysId, message.compId)
+            return
+        }
         when (message.msgId) {
             MavlinkProtocol.MSG_ID_STATUSTEXT -> {
                 val text = MavlinkProtocol.decodeStatustextPayload(message.payload)
-                text?.let { processStatustext(it) }
+                if (text == null) {
+                    Timber.w("STATUSTEXT with unparsable payload (len=%d)", message.payload.size)
+                } else {
+                    Timber.i("RX STATUSTEXT: %s", text)
+                    processStatustext(text)
+                }
             }
             MavlinkProtocol.MSG_ID_COMMAND_ACK -> processCommandAck(message)  // COMMAND_ACK
             0 -> processHeartbeat(message)        // HEARTBEAT
@@ -201,10 +270,26 @@ class MavlinkFlightRepository(
     }
 
     private fun processHeartbeat(message: MavlinkMessage) {
-        // HEARTBEAT message received
-        _flightState.update { current ->
-            current.updateHeartbeat()
+        // MAVLink HEARTBEAT wire layout (declaration order):
+        //   custom_mode u32 @0, type u8 @4, autopilot u8 @5, base_mode u8 @6,
+        //   system_status u8 @7, mavlink_version u8 @8
+        // custom_mode is the ArduPilot flight-mode enum (little-endian uint32).
+        var customMode: Int? = null
+        var armed: Boolean? = null
+        if (message.payload.size >= 9) {
+            customMode = (message.payload[0].toInt() and 0xFF) or
+                    ((message.payload[1].toInt() and 0xFF) shl 8) or
+                    ((message.payload[2].toInt() and 0xFF) shl 16) or
+                    ((message.payload[3].toInt() and 0xFF) shl 24)
+            val baseMode = message.payload[6].toInt() and 0xFF
+            // MAV_MODE_FLAG_SAFETY_ARMED = 0x80
+            armed = (baseMode and 0x80) != 0
         }
+        val mc = customMode
+        _flightState.update { current ->
+            current.updateHeartbeat(armed = armed, customMode = mc)
+        }
+        Timber.d("HEARTBEAT: custom_mode=$mc armed=$armed")
     }
 
     private fun processBattery(message: MavlinkMessage) {
@@ -317,6 +402,8 @@ class MavlinkFlightRepository(
                         current.isHeartbeatTimeout()
                     ) {
                         Timber.w("Heartbeat timeout - marking disconnected")
+                        vehicleSysId = null
+                        vehicleCompId = null
                         current.copy(connectionState = com.dronegcs.app.domain.model.ConnectionState.Disconnected("Heartbeat timeout"))
                     } else {
                         current
@@ -326,26 +413,9 @@ class MavlinkFlightRepository(
         }
     }
 
-    private fun startModePoll() {
-        // Poll vehicle mode every 50ms (matching Python's QTimer at 50ms)
-        // In Android, we'll poll the flight state for mode changes
-        modePollJob = scope.launch {
-            var lastMode: String? = null
-            while (true) {
-                delay(50)
-                _flightState.update { current ->
-                    // The mode is updated from HEARTBEAT or STATUSTEXT
-                    // This is a placeholder for mode polling if needed
-                    current
-                }
-            }
-        }
-    }
-
     fun shutdown() {
         parseJob?.cancel()
         heartbeatWatchdogJob?.cancel()
-        modePollJob?.cancel()
         parseChannel.close()
     }
 }

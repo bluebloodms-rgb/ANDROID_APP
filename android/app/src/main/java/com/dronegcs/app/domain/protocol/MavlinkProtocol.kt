@@ -28,6 +28,12 @@ object MavlinkProtocol {
     const val MAV_CMD_NAV_RETURN_TO_LAUNCH = 20
     const val MAV_CMD_NAV_LAND = 21
 
+    // GCS identity constants (same as dronekit/MAVLink defaults: 255/190).
+    // ArduPilot runs as sysId=1 and IGNORES incoming frames whose sysId equals
+    // its own — using 1 here was why phone commands never reached the FC.
+    const val GCS_SYSTEM_ID = 255
+    const val GCS_COMPONENT_ID = 190
+
     // SPP UUID for Bluetooth Classic
     const val SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
 
@@ -46,8 +52,11 @@ object MavlinkProtocol {
         textBytes.copyInto(payload, 1, 0, textBytes.size.coerceAtMost(MAX_STATUSTEXT_LENGTH))
 
         val seq = nextSequence()
-        val sysId = 1  // Ground station
-        val compId = 1 // Mission planner
+        // GCS identity — must NOT collide with the vehicle's sysId (ArduPilot is
+        // sysId=1 and silently drops frames claiming its own sysId).
+        // dronekit/MAVLink GCS defaults: source_system=255, source_component=190.
+        val sysId = GCS_SYSTEM_ID
+        val compId = GCS_COMPONENT_ID
 
         // MAVLink v2 frame:
         // STX(1) len(1) incompat(1) compat(1) seq(1) sysid(1) compid(1) msgid(3)
@@ -119,8 +128,8 @@ object MavlinkProtocol {
         floatToBytes(param7).copyInto(payload, idx); idx += 4
 
         val seq = nextSequence()
-        val sysId = 1
-        val compId = 1
+        val sysId = GCS_SYSTEM_ID
+        val compId = GCS_COMPONENT_ID
 
         val msgLen = payload.size
         val frame = ByteArray(FRAME_HEADER_LEN + msgLen + FRAME_CRC_LEN)
@@ -162,7 +171,8 @@ object MavlinkProtocol {
     fun decodeStatustextPayload(payload: ByteArray): String? {
         if (payload.size < 1) return null
         val severity = payload[0].toInt()
-        if (severity != MAV_SEVERITY_INFO) return null
+        // Accept ALL severities — the FC replies with WARNING/ERROR texts too and
+        // dropping them hid real responses during live testing.
 
         val textBytes = payload.copyOfRange(1, payload.size)
         // Trim trailing nulls

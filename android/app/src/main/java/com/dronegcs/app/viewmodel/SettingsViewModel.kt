@@ -43,7 +43,10 @@ class SettingsViewModel @Inject constructor(
     private val _autoReconnectEnabled = MutableStateFlow(true)
     val autoReconnectEnabled = _autoReconnectEnabled.asStateFlow()
 
-    private val _isFirstRun = MutableStateFlow(true)
+    // Tri-state: null = still loading from DataStore. The welcome screen must
+    // only show on the genuine first run — using `true` as the initial value
+    // made MainActivity start on ONBOARDING before DataStore loaded.
+    private val _isFirstRun = MutableStateFlow<Boolean?>(null)
     val isFirstRun = _isFirstRun.asStateFlow()
 
     init {

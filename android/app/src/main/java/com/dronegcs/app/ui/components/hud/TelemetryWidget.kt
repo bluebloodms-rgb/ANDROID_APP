@@ -17,9 +17,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
@@ -100,10 +104,23 @@ fun ConnectionStatusBadge(
     deviceName: String? = null
 ) {
     val (color, text) = when {
-        isConnected -> androidx.compose.ui.graphics.Color(0xFF00BFFF) to "● $deviceName"
+        isConnected -> androidx.compose.ui.graphics.Color(0xFF00BFFF) to (deviceName ?: "Connected")
         isConnecting -> androidx.compose.ui.graphics.Color(0xFFFF8C00) to "◐ Connecting..."
         else -> androidx.compose.ui.graphics.Color(0xFFFF4444) to "○ Disconnected"
     }
+
+    // "Alive" pulse: the single dot gently grows/shrinks while connected.
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "connPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 1.15f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(durationMillis = 900, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "connPulseScale"
+    )
+    val dotScale = if (isConnected) pulseScale else 1f
 
     Surface(
         modifier = Modifier
@@ -118,7 +135,8 @@ fun ConnectionStatusBadge(
             verticalAlignment = Alignment.CenterVertically
         ) {
             androidx.compose.foundation.layout.Box(
-                modifier = Modifier.size(8.dp)
+                modifier = Modifier.size(10.dp)
+                    .scale(dotScale)
                     .clip(androidx.compose.foundation.shape.CircleShape)
                     .background(color)
             )

@@ -32,6 +32,8 @@ data class FlightState(
 
     // Heartbeat tracking
     val lastHeartbeat: Long = 0,
+    val isArmed: Boolean = false,
+    val fcMode: Int? = null,   // ArduPilot custom_mode from HEARTBEAT
 
     // Command tracking
     val lastCommand: Int = 0,
@@ -96,8 +98,12 @@ data class FlightState(
         )
     }
 
-    fun updateHeartbeat(): FlightState {
-        return copy(lastHeartbeat = System.currentTimeMillis())
+    fun updateHeartbeat(armed: Boolean? = null, customMode: Int? = null): FlightState {
+        return copy(
+            lastHeartbeat = System.currentTimeMillis(),
+            isArmed = armed ?: isArmed,
+            fcMode = customMode ?: fcMode
+        )
     }
 
     fun isHeartbeatTimeout(): Boolean {
@@ -112,19 +118,40 @@ data class FlightState(
     }
 
     // Convenience getters for UI
+    /** ArduPilot Copter custom_mode -> flight mode name (Guided, AltHold, ...). */
+    val fcModeName: String?
+        get() = fcMode?.let { m ->
+            when (m) {
+                0 -> "STABILIZE"; 1 -> "ACRO"; 2 -> "ALT_HOLD"; 3 -> "AUTO"
+                4 -> "GUIDED"; 5 -> "LOITER"; 6 -> "RTL"; 7 -> "CIRCLE"
+                8 -> "POSITION"; 9 -> "LAND"; 10 -> "OF_LOITER"; 11 -> "DRIFT"
+                12 -> "SPORT"; 13 -> "FLIP"; 14 -> "AUTOTUNE"; 15 -> "POSHOLD"
+                16 -> "BRAKE"; 17 -> "THROW"; 18 -> "AVOID_ADSB"; 19 -> "GUIDED_NOGPS"
+                // This vehicle has no RTL: Smart RTL (20) / Auto RTL (26) / RTL (6)
+                // are all displayed as GUIDED, matching the Windows app.
+                6, 20, 26 -> "GUIDED"
+                21 -> "FLOWHOLD"; 22 -> "FOLLOW"; 23 -> "ZIGZAG"
+                24 -> "SYSTEMID"; 25 -> "AUTOROTATE"
+                else -> "MODE $m"
+            }
+        }
+
     val modeName: String
         get() = when (md) {
-            1 -> "MANUAL"
+            // Bottom dock ALWAYS shows Manual/Auto (from STATUSTEXT Md), exactly
+            // like the Windows app. The real ArduPilot mode (Guided, ...) is only
+            // shown in the TopBar via fcModeName.
             2 -> "AUTO"
-            else -> mode ?: "---"
+            else -> "MANUAL"
         }
 
     val className: String
         get() = when (cls) {
-            0 -> "Person"
+            // Windows class numbers: Balloon = 0, Person = 1, Car = 2, Drone = 3
+            0 -> "Balloon"
+            1 -> "Person"
             2 -> "Car"
-            3 -> "Balloon"
-            4 -> "UAV"
+            3 -> "Drone"
             else -> "Unknown"
         }
 

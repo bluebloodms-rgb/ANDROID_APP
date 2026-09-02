@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dronegcs.app.ui.theme.scaled
 import androidx.compose.ui.unit.sp
 
 /**
@@ -38,15 +39,15 @@ fun ZoomPill(
     onReset: () -> Unit
 ) {
     Surface(
-        modifier = modifier.width(46.dp),
-        shape = RoundedCornerShape(22.dp),
+        modifier = modifier.width(46.dp.scaled()),
+        shape = RoundedCornerShape(22.dp.scaled()),
         color = Color(0xCC000000),
-        border = BorderStroke(1.dp, Color(0xFFFF8C00))
+        border = BorderStroke(1.dp.scaled(), Color(0xFFFF8C00))
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(vertical = 4.dp)
+            modifier = Modifier.padding(vertical = 4.dp.scaled())
         ) {
             PillIcon(Icons.Default.Add, "Zoom in", onZoomIn, enabled && zoom < 10f)
             Text(
@@ -69,12 +70,12 @@ private fun PillIcon(
     onClick: () -> Unit,
     enabled: Boolean
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(40.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(44.dp.scaled())) {
         Icon(
             imageVector = icon,
             contentDescription = description,
             tint = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp.scaled())
         )
     }
 }

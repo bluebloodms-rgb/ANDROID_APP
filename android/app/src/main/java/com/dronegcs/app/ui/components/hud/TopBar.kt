@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
 import com.dronegcs.app.domain.model.ConnectionState
 import com.dronegcs.app.domain.model.FlightState
+import com.dronegcs.app.ui.theme.scaled
 
 /**
  * Compact top telemetry bar: connection status, telemetry chips and connect button.
@@ -69,6 +70,23 @@ fun TopBar(
                 isConnecting = isConnecting,
                 deviceName = (connection as? ConnectionState.Connected)?.deviceName
             )
+
+            // Flight mode chip (Guided / AltHold / ... from HEARTBEAT custom_mode)
+            // TOP BAR ONLY — the bottom dock shows Manual/Auto from STATUSTEXT Md.
+            flightState.fcModeName?.let { mode ->
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp.scaled()),
+                    color = if (flightState.isArmed) Color(0xFF2E7D32) else Color(0xFF37474F)
+                ) {
+                    Text(
+                        text = mode,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = Color(0xFFFFD54F),
+                        modifier = Modifier.padding(horizontal = 10.dp.scaled(), vertical = 4.dp.scaled())
+                    )
+                }
+            }
 
             TelemetryWidget(
                 iconRes = R.drawable.ic_battery,

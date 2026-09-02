@@ -68,9 +68,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.text.KeyboardOptions
 import com.dronegcs.app.domain.model.Command
+import com.dronegcs.app.ui.theme.UiScaleContainer
 import com.dronegcs.app.domain.model.ConnectionUiState
 import com.dronegcs.app.domain.model.VideoSource
 import com.dronegcs.app.ui.components.controls.BottomControlPanel
+import com.dronegcs.app.ui.components.controls.PidFieldsState
 import com.dronegcs.app.ui.components.controls.ControlDock
 import com.dronegcs.app.ui.components.controls.PitchSlider
 import com.dronegcs.app.ui.components.controls.ZoomPill
@@ -157,6 +159,8 @@ fun MainScreen(
     var showPitchPanel by remember { mutableStateOf(false) }
     var showZoomPanel by remember { mutableStateOf(true) }
     var showControlPanel by remember { mutableStateOf(false) }
+    // Hoisted PID field state: filled by BottomControlPanel, collected+cleared by START
+    val pidFields = remember { PidFieldsState() }
     var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
     var lastSentPitch by remember { mutableStateOf(0f) }
     LaunchedEffect(flightState.pitch) { flightState.pitch?.let { displayPitch = it } }
@@ -203,6 +207,7 @@ fun MainScreen(
     }
 
     // ---------- Layout ----------
+    UiScaleContainer {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -217,6 +222,21 @@ fun MainScreen(
 
         CrosshairOverlay()
         TapReticle(positionFraction = tapPosition)
+
+        // Scrim: when the bottom control panel is expanded, tapping anywhere
+        // outside it closes it. Drawn behind the dock/panel (they come later),
+        // so those stay interactive while everything else dismisses the panel.
+        if (showControlPanel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x59000000))
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    ) { showControlPanel = false }
+            )
+        }
 
         TopBar(
             modifier = Modifier.align(Alignment.TopCenter),
@@ -320,7 +340,8 @@ fun MainScreen(
                 BottomControlPanel(
                     connectionViewModel = connectionViewModel,
                     flightState = flightState,
-                    isConnected = isConnected
+                    isConnected = isConnected,
+                    pidFields = pidFields
                 )
             }
             ControlDock(
@@ -328,7 +349,13 @@ fun MainScreen(
                 isConnected = isConnected,
                 modeName = flightState.modeName,
                 expanded = showControlPanel,
-                onStartClick = { connectionViewModel.sendStart(null) },
+                onStartClick = {
+                    // Exactly like the Windows app: send START:TRUE with the filled
+                    // PID values ("y1=..,d1=..,..."), then clear all the fields.
+                    val pidValues = pidFields.pidValuesString()
+                    connectionViewModel.sendStart(pidValues.ifBlank { null })
+                    pidFields.clear()
+                },
                 onCancelClick = { connectionViewModel.sendCancel() },
                 onModeClick = {
                     connectionViewModel.sendMode(
@@ -358,7 +385,8 @@ fun MainScreen(
                 )
             }
         }
-    }
+    } // Box
+    } // UiScaleContainer
 
     if (showConnectDialog) {
         BluetoothConnectDialog(
