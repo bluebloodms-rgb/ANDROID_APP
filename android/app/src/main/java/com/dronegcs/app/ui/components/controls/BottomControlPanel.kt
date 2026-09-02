@@ -29,11 +29,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -44,7 +46,37 @@ import androidx.compose.ui.unit.sp
 import com.dronegcs.app.R
 import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.domain.model.FlightState
+import com.dronegcs.app.ui.theme.scaled
 import com.dronegcs.app.viewmodel.ConnectionViewModel
+
+/**
+ * Hoisted PID field state so the ControlDock START button (in MainScreen) can
+ * collect the filled values — exactly like the Windows app's _get_pid_values()
+ * — and clear the fields after START is pressed.
+ */
+class PidFieldsState {
+    val values = mutableStateMapOf(
+        "y1" to "", "d1" to "", "l1" to "",
+        "y2" to "", "d2" to "", "l2" to "",
+        "r" to "", "dr" to "", "lr" to "",
+        "t" to "", "dt" to "", "lt" to "",
+        "s" to "", "ds" to "", "ls" to ""
+    )
+
+    private val order = listOf(
+        "y1", "d1", "l1", "y2", "d2", "l2",
+        "r", "dr", "lr", "t", "dt", "lt", "s", "ds", "ls"
+    )
+
+    /** "y1=1.2,d1=0.3,..." built from the filled fields only (Windows-identical). */
+    fun pidValuesString(): String = order
+        .mapNotNull { k -> values[k]?.takeIf { it.isNotBlank() }?.let { "$k=$it" } }
+        .joinToString(",")
+
+    fun clear() {
+        order.forEach { values[it] = "" }
+    }
+}
 
 /**
  * Collapsible control panel for the mobile GCS:
@@ -61,76 +93,64 @@ fun BottomControlPanel(
     modifier: Modifier = Modifier.fillMaxWidth(),
     connectionViewModel: ConnectionViewModel,
     flightState: FlightState,
-    isConnected: Boolean
+    isConnected: Boolean,
+    pidFields: PidFieldsState
 ) {
-    // ---- PID fields (Python protocol keys) ----
-    var y1 by remember { mutableStateOf("") }  // kp_yaw1
-    var d1 by remember { mutableStateOf("") }  // kd_yaw1
-    var l1 by remember { mutableStateOf("") }  // limit_yaw1
-    var y2 by remember { mutableStateOf("") }  // kp_yaw2
-    var d2 by remember { mutableStateOf("") }  // kd_yaw2
-    var l2 by remember { mutableStateOf("") }  // limit_yaw2
-    var r by remember { mutableStateOf("") }   // kp_roll
-    var dr by remember { mutableStateOf("") }  // kd_roll
-    var lr by remember { mutableStateOf("") }  // limit_roll
-    var t by remember { mutableStateOf("") }   // kp_thrust
-    var dt by remember { mutableStateOf("") }  // kd_thrust
-    var lt by remember { mutableStateOf("") }  // limit_thrust
-    var s by remember { mutableStateOf("") }   // kp_srv
-    var ds by remember { mutableStateOf("") }  // kd_srv
-    var ls by remember { mutableStateOf("") }  // limit_srv
+    // ---- PID fields (Python protocol keys) — hoisted in PidFieldsState ----
+    fun f(key: String) = pidFields.values[key] ?: ""
+    fun set(key: String, v: String) { pidFields.values[key] = v }
 
     val initialized = flightState.initialized
 
     Surface(
         modifier = modifier,
         color = Color(0xCC151515),
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        shape = RoundedCornerShape(topStart = 18.dp.scaled(), topEnd = 18.dp.scaled()),
         shadowElevation = 12.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 8.dp.scaled(), vertical = 8.dp.scaled()),
+            verticalArrangement = Arrangement.spacedBy(8.dp.scaled())
         ) {
             // Row 1: YAW1, YAW2, ROLL
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp.scaled())
             ) {
                 PidGroup("YAW1", Modifier.weight(1f), listOf(
-                    MiniPidFieldData("y1", y1) { y1 = it },
-                    MiniPidFieldData("d1", d1) { d1 = it },
-                    MiniPidFieldData("l1", l1) { l1 = it }
+                    MiniPidFieldData("y1", f("y1")) { set("y1", it) },
+                    MiniPidFieldData("d1", f("d1")) { set("d1", it) },
+                    MiniPidFieldData("l1", f("l1")) { set("l1", it) }
                 ))
                 PidGroup("YAW2", Modifier.weight(1f), listOf(
-                    MiniPidFieldData("y2", y2) { y2 = it },
-                    MiniPidFieldData("d2", d2) { d2 = it },
-                    MiniPidFieldData("l2", l2) { l2 = it }
+                    MiniPidFieldData("y2", f("y2")) { set("y2", it) },
+                    MiniPidFieldData("d2", f("d2")) { set("d2", it) },
+                    MiniPidFieldData("l2", f("l2")) { set("l2", it) }
                 ))
                 PidGroup("ROLL", Modifier.weight(1f), listOf(
-                    MiniPidFieldData("r", r) { r = it },
-                    MiniPidFieldData("dr", dr) { dr = it },
-                    MiniPidFieldData("lr", lr) { lr = it }
+                    MiniPidFieldData("r", f("r")) { set("r", it) },
+                    MiniPidFieldData("dr", f("dr")) { set("dr", it) },
+                    MiniPidFieldData("lr", f("lr")) { set("lr", it) }
                 ))
             }
 
             // Row 2: THRUST + SERVO (aligned to the same 1/3 columns)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp.scaled())
             ) {
                 PidGroup("THRUST", Modifier.weight(1f), listOf(
-                    MiniPidFieldData("t", t) { t = it },
-                    MiniPidFieldData("dt", dt) { dt = it },
-                    MiniPidFieldData("lt", lt) { lt = it }
+                    MiniPidFieldData("t", f("t")) { set("t", it) },
+                    MiniPidFieldData("dt", f("dt")) { set("dt", it) },
+                    MiniPidFieldData("lt", f("lt")) { set("lt", it) }
                 ))
                 PidGroup("SERVO", Modifier.weight(1f), listOf(
-                    MiniPidFieldData("s", s) { s = it },
-                    MiniPidFieldData("ds", ds) { ds = it },
-                    MiniPidFieldData("ls", ls) { ls = it }
+                    MiniPidFieldData("s", f("s")) { set("s", it) },
+                    MiniPidFieldData("ds", f("ds")) { set("ds", it) },
+                    MiniPidFieldData("ls", f("ls")) { set("ls", it) }
                 ))
                 Spacer(modifier = Modifier.weight(1f))
             }
@@ -203,8 +223,8 @@ private fun MiniPidField(
             color = Color.Black
         ),
         modifier = Modifier
-            .size(width = 34.dp, height = 36.dp)
-            .background(Color(0xFFE8E8E8), RoundedCornerShape(4.dp))
+            .size(width = 34.dp.scaled(), height = 38.dp.scaled())
+            .background(Color(0xFFE8E8E8), RoundedCornerShape(4.dp.scaled()))
             .padding(horizontal = 3.dp),
         decorationBox = { innerTextField ->
             Box(
@@ -233,10 +253,11 @@ private data class TargetChoice(
 )
 
 private val targetChoices = listOf(
-    TargetChoice(0, "Person", R.drawable.ic_person, Command.SetClass.TargetClass.PERSON),
+    // Class numbers matching the Windows app: Balloon=0, Person=1, Car=2, Drone=3
+    TargetChoice(1, "Person", R.drawable.ic_person, Command.SetClass.TargetClass.PERSON),
     TargetChoice(2, "Car", R.drawable.ic_car, Command.SetClass.TargetClass.CAR),
-    TargetChoice(3, "Balloon", R.drawable.ic_balloon, Command.SetClass.TargetClass.BALLOON),
-    TargetChoice(4, "UAV", R.drawable.ic_drone, Command.SetClass.TargetClass.UAV)
+    TargetChoice(0, "Balloon", R.drawable.ic_balloon, Command.SetClass.TargetClass.BALLOON),
+    TargetChoice(3, "Drone", R.drawable.ic_drone, Command.SetClass.TargetClass.DRONE)
 )
 
 /**
@@ -249,7 +270,13 @@ private fun SpeedDropdown(
 ) {
     val options = listOf(12f, 19f, 22f)
     var menuOpen by remember { mutableStateOf(false) }
-    val current = if (flightState.spd in options) flightState.spd else options.first()
+    // Optimistic selection: update immediately on click; the FC echo (Spd:..)
+    // replaces it when it arrives, and any echo clears the pending override.
+    var pendingSpeed by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(flightState.spd) { if (flightState.spd != null) pendingSpeed = null }
+    val current = pendingSpeed
+        ?: flightState.spd?.takeIf { it in options }
+        ?: options.first()
 
     Box {
         OutlinedButton(
@@ -277,6 +304,7 @@ private fun SpeedDropdown(
                     text = { Text("%.0f m/s".format(s), fontWeight = FontWeight.Bold) },
                     onClick = {
                         menuOpen = false
+                        pendingSpeed = s
                         connectionViewModel.sendSpeed(s)
                     }
                 )
@@ -295,7 +323,13 @@ private fun TargetDropdown(
     connectionViewModel: ConnectionViewModel
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val current = targetChoices.firstOrNull { it.cls == flightState.cls } ?: targetChoices.first()
+    // Optimistic selection: update immediately on click; the FC echo (Cls:..)
+    // replaces it when it arrives, and any echo clears the pending override.
+    var pendingTarget by remember { mutableStateOf<Command.SetClass.TargetClass?>(null) }
+    LaunchedEffect(flightState.cls) { if (flightState.cls != null) pendingTarget = null }
+    val current = targetChoices.firstOrNull { it.target == pendingTarget }
+        ?: targetChoices.firstOrNull { it.cls == flightState.cls }
+        ?: targetChoices.first()
 
     Box {
         OutlinedButton(
@@ -337,6 +371,7 @@ private fun TargetDropdown(
                     text = { Text(choice.label) },
                     onClick = {
                         menuOpen = false
+                        pendingTarget = choice.target
                         connectionViewModel.sendClass(choice.target)
                     }
                 )
