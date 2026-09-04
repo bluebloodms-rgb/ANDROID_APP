@@ -362,12 +362,7 @@ fun MainScreen(
                     pidFields.clear()
                 },
                 onCancelClick = { connectionViewModel.sendCancel() },
-                onModeClick = {
-                    connectionViewModel.sendMode(
-                        if (flightState.md == 1) Command.SetMode.Mode.AUTO
-                        else Command.SetMode.Mode.MANUAL
-                    )
-                },
+                onModeClick = { mode -> connectionViewModel.sendMode(mode) },
                 onExpandClick = { showControlPanel = !showControlPanel }
             )
         }
@@ -459,21 +454,26 @@ private fun RtspConfigDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { cameraViewModel.setVideoSource(VideoSource.PhoneCamera()) }) {
-                        Text("Use phone camera")
-                    }
-                    Button(
-                        enabled = urlText.trim().startsWith("rtsp://"),
-                        onClick = {
-                            settingsViewModel.updateRtspUrl(urlText.trim())
-                            cameraViewModel.setVideoSource(VideoSource.RtspStream(urlText.trim()))
-                        }
-                    ) { Text("Start stream") }
-                }
             }
         },
+        // Action buttons live in the dialog's action row, which is always
+        // visible regardless of screen height (on small landscape phones the
+        // text area alone is too short to also fit them).
         confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { cameraViewModel.setVideoSource(VideoSource.PhoneCamera()) }) {
+                    Text("Use camera")
+                }
+                Button(
+                    enabled = urlText.trim().startsWith("rtsp://"),
+                    onClick = {
+                        settingsViewModel.updateRtspUrl(urlText.trim())
+                        cameraViewModel.setVideoSource(VideoSource.RtspStream(urlText.trim()))
+                    }
+                ) { Text("Start stream") }
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
         }
     )

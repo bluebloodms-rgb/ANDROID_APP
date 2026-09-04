@@ -20,6 +20,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.ui.theme.AlertRed
 import com.dronegcs.app.ui.theme.AvionicsAmber
 import com.dronegcs.app.ui.theme.PanelHairline
@@ -53,9 +59,16 @@ fun ControlDock(
     expanded: Boolean = false,
     onStartClick: () -> Unit,
     onCancelClick: () -> Unit,
-    onModeClick: () -> Unit,
+    onModeClick: (Command.SetMode.Mode) -> Unit,
     onExpandClick: () -> Unit
 ) {
+    // Optimistic mode toggle: the FC never echoes "Md:" on this protocol
+    // (verified in live logs), so without local state the button label would
+    // never change. FC echo (Md:) still wins whenever it does arrive.
+    var optimisticAuto by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(modeName) { optimisticAuto = null }
+    val effectiveModeName = optimisticAuto?.let { if (it) "AUTO" else "MANUAL" } ?: modeName
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = PanelTranslucent
@@ -96,12 +109,19 @@ fun ControlDock(
                 modifier = Modifier.weight(1f)
             )
             DockButton(
-                text = modeName,
+                text = effectiveModeName,
                 container = Color.Transparent,
-                enabled = isConnected,
+                // Mode toggle stays usable even while disconnected (the label
+                // flip is local/optimistic; the send is a harmless no-op when
+                // offline). START/CANCEL remain connection-gated for safety.
+                enabled = true,
                 border = BorderStroke(1.dp, AvionicsAmber),
                 textColor = AvionicsAmber,
-                onClick = onModeClick,
+                onClick = {
+                    val nextAuto = effectiveModeName != "AUTO"
+                    optimisticAuto = nextAuto
+                    onModeClick(if (nextAuto) Command.SetMode.Mode.AUTO else Command.SetMode.Mode.MANUAL)
+                },
                 modifier = Modifier.weight(1f)
             )
         }

@@ -46,32 +46,33 @@ fun TelemetryWidget(
     label: String,
     value: String,
     unit: String = "",
-    color: androidx.compose.ui.graphics.Color = ElectricBlue
+    color: androidx.compose.ui.graphics.Color = ElectricBlue,
+    compact: Boolean = false
 ) {
     Surface(
         modifier = modifier
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        shape = ChamferShape(8.dp),
+            .padding(horizontal = if (compact) 1.dp else 4.dp, vertical = 4.dp),
+        shape = ChamferShape(if (compact) 5.dp else 8.dp),
         color = PanelTranslucent,
         border = BorderStroke(1.dp, PanelHairline)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = if (compact) 4.dp else 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(if (compact) 14.dp else 20.dp)
             )
             Column {
                 Text(
                     text = label,
                     style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
+                    fontSize = if (compact) 8.sp else 10.sp
                 )
                 Row(
                     verticalAlignment = Alignment.Bottom,
@@ -82,14 +83,14 @@ fun TelemetryWidget(
                         style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                         color = color,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = if (compact) 11.sp else 14.sp
                     )
                     if (unit.isNotBlank()) {
                         Text(
                             text = unit,
                             style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                             color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+                            fontSize = if (compact) 8.sp else 10.sp
                         )
                     }
                 }
@@ -105,12 +106,13 @@ fun TelemetryWidget(
 fun ConnectionStatusBadge(
     isConnected: Boolean,
     isConnecting: Boolean,
-    deviceName: String? = null
+    deviceName: String? = null,
+    compact: Boolean = false
 ) {
     val (color, text) = when {
-        isConnected -> PhosphorGreen to (deviceName ?: "LINK")
-        isConnecting -> AvionicsAmber to "◐ SYNC..."
-        else -> AlertRed to "○ NO LINK"
+        isConnected -> PhosphorGreen to (if (compact) "LINK" else (deviceName ?: "LINK"))
+        isConnecting -> AvionicsAmber to "SYNC…"
+        else -> AlertRed to "NO LINK"
     }
 
     // "Alive" pulse: the single dot gently grows/shrinks while connected.
@@ -128,14 +130,14 @@ fun ConnectionStatusBadge(
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 8.dp)
+            .padding(horizontal = if (compact) 2.dp else 8.dp)
             .height(28.dp),
         shape = ChamferShape(8.dp),
         color = PanelTranslucent,
         border = BorderStroke(1.dp, PanelHairline)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp),
+            modifier = Modifier.padding(horizontal = if (compact) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             androidx.compose.foundation.layout.Box(

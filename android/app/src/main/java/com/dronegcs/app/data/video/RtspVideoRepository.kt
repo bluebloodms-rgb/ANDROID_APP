@@ -56,11 +56,19 @@ class RtspVideoRepository(
         playerView.useController = false
         playerView.setKeepContentOnPlayerReset(true)
         mainScope.launch {
-            ensurePlayer()
-            playerView.player = player
-            // If play() ran before the view was bound (launch restore path),
-            // (re)start the requested stream now that the player exists.
-            pendingUrl?.let { url -> startPlayback(url) }
+            // Harden every player path: on some devices/drivers ExoPlayer
+            // creation or surface attach can throw (seen on older Androids).
+            // The app must never crash — surface the error in the UI instead.
+            try {
+                ensurePlayer()
+                playerView.player = player
+                // If play() ran before the view was bound (launch restore path),
+                // (re)start the requested stream now that the player exists.
+                pendingUrl?.let { url -> startPlayback(url) }
+            } catch (t: Throwable) {
+                Timber.e(t, "Player bind failed")
+                _error.value = "Video init failed: ${t.message ?: t.javaClass.simpleName}"
+            }
         }
     }
 
@@ -126,35 +134,52 @@ class RtspVideoRepository(
 
     private fun startPlayback(rtspUrl: String) {
         val exoPlayer = player ?: return
-        val mediaItem = MediaItem.Builder()
-            .setUri(rtspUrl)
-            .setLiveConfiguration(
-                androidx.media3.common.MediaItem.LiveConfiguration.Builder()
-                    .setTargetOffsetMs(0)
-                    .setMinOffsetMs(0)
-                    .setMaxOffsetMs(0)
-                    .build()
-            )
-            .build()
-        val mediaSource = RtspMediaSource.Factory()
-            .setTimeoutMs(5000)
-            .createMediaSource(mediaItem)
-        exoPlayer.setMediaSource(mediaSource)
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
-        exoPlayer.setPlaybackSpeed(1.0f)
-        _buffering.value = true
-        _error.value = null
-        startWatchdog()
-        Timber.d("Starting RTSP stream: $rtspUrl")
+        try {
+            val mediaItem = MediaItem.Builder()
+                .setUri(rtspUrl)
+                // Target the live edge; avoid min/max offset setters — they are
+                // validated against the window and can throw on some streams.
+                .setLiveConfiguration(
+                    androidx.media3.common.MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(0)
+                        .build()
+                )
+                .build()
+            val mediaSource = RtspMediaSource.Factory()
+                .setTimeoutMs(5000)
+                .createMediaSource(mediaItem)
+            exoPlayer.setMediaSource(mediaSource)
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+            exoPlayer.setPlaybackSpeed(1.0f)
+            _buffering.value = true
+            _error.value = null
+            startWatchdog()
+            Timber.d("Starting RTSP stream: $rtspUrl")
+        } catch (e: Exception) {
+            // Never let a bad URL or blocked transport (cleartext policy on
+            // Android 9+) crash the app - surface it in the RTSP dialog instead.
+            Timber.e(e, "Failed to start RTSP stream: $rtspUrl")
+            _buffering.value = false
+            _isPlaying.value = false
+            _error.value = "Stream error: ${e.message ?: e.javaClass.simpleName}"
+        }
     }
 
     fun play(rtspUrl: String) {
         pendingUrl = rtspUrl
         mainScope.launch {
-            ensurePlayer()
-            startPlayback(rtspUrl)
-            pendingUrl = null
+            try {
+                ensurePlayer()
+                startPlayback(rtspUrl)
+                pendingUrl = null
+            } catch (t: Throwable) {
+                Timber.e(t, "Failed to start RTSP stream: $rtspUrl")
+                pendingUrl = null
+                _buffering.value = false
+                _isPlaying.value = false
+                _error.value = "Stream error: ${t.message ?: t.javaClass.simpleName}"
+            }
         }
     }
 

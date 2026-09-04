@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,20 +64,29 @@ fun TopBar(
         modifier = modifier.fillMaxWidth(),
         color = BackgroundDark.copy(alpha = 0.85f)
     ) {
+        // Small screens (Android 9 test phone, ~360 dp wide in landscape):
+        // the badge + 4 chips + CONNECT + videocam do not fit, forcing a swipe.
+        // Drop the HDOP chip (least critical) and tighten spacing on narrow
+        // widths so everything fits without scrolling.
+        BoxWithConstraints {
+            // Compact below 560dp: covers small phones in landscape (e.g. a
+            // 720p device at ~550-780dp) where the full-size row overflows.
+            val narrow = maxWidth < 560.dp
         Row(
             modifier = Modifier
                 .statusBarsPadding()
                 .fillMaxWidth()
                 .height(52.dp)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = if (narrow) 4.dp else 8.dp)
                 .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (narrow) 3.dp else 6.dp)
         ) {
             ConnectionStatusBadge(
                 isConnected = isConnected,
                 isConnecting = isConnecting,
-                deviceName = (connection as? ConnectionState.Connected)?.deviceName
+                deviceName = (connection as? ConnectionState.Connected)?.deviceName,
+                compact = narrow
             )
 
             // Flight mode chip (Guided / AltHold / ... from HEARTBEAT custom_mode)
@@ -100,24 +110,29 @@ fun TopBar(
                 iconRes = R.drawable.ic_battery,
                 label = "BAT",
                 value = flightState.battery?.let { "%.1f".format(it) } ?: "--",
-                unit = "V"
+                unit = "V",
+                compact = narrow
             )
             TelemetryWidget(
                 iconRes = R.drawable.ic_satellite,
                 label = "SAT",
-                value = flightState.satellites?.toString() ?: "--"
+                value = flightState.satellites?.toString() ?: "--",
+                compact = narrow
             )
             TelemetryWidget(
                 iconRes = R.drawable.ic_altitude,
                 label = "ALT",
                 value = flightState.altitude?.let { "%.1f".format(it) } ?: "--",
-                unit = "m"
+                unit = "m",
+                compact = narrow
             )
-            TelemetryWidget(
-                iconRes = R.drawable.ic_hdop,
-                label = "HDOP",
-                value = flightState.hdop?.let { "%.1f".format(it) } ?: "--"
-            )
+            if (!narrow) {
+                TelemetryWidget(
+                    iconRes = R.drawable.ic_hdop,
+                    label = "HDOP",
+                    value = flightState.hdop?.let { "%.1f".format(it) } ?: "--"
+                )
+            }
 
             Spacer(modifier = Modifier.width(4.dp))
 
@@ -134,7 +149,7 @@ fun TopBar(
                         else -> "CONNECT"
                     },
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                    fontSize = if (narrow) 10.sp else 12.sp
                 )
             }
 
@@ -148,4 +163,5 @@ fun TopBar(
             }
         }
     }
+}
 }
