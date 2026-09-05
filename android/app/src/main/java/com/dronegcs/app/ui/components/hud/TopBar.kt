@@ -50,6 +50,7 @@ import com.dronegcs.app.ui.theme.scaled
 fun TopBar(
     modifier: Modifier = Modifier,
     flightState: FlightState,
+    modeDisplay: String = "---",
     onConnectClick: () -> Unit,
     onDisconnectClick: () -> Unit,
     onRtspClick: () -> Unit = {}
@@ -93,7 +94,6 @@ fun TopBar(
             )
 
             // Flight mode chip (Guided / AltHold / ... from HEARTBEAT custom_mode)
-            // TOP BAR ONLY — the bottom dock shows Manual/Auto from STATUSTEXT Md.
             // Always visible; shrinks on narrow screens instead of being removed.
             flightState.fcModeName?.let { mode ->
                 Surface(
@@ -111,6 +111,26 @@ fun TopBar(
                         )
                     )
                 }
+            }
+
+            // Manual/Auto chip — moved here from the bottom dock. Label comes
+            // EXCLUSIVELY from the drone's periodic Md: echo ("---" until the
+            // first status message arrives; never changed locally).
+            Surface(
+                shape = ChamferShape(6.dp.scaled()),
+                border = BorderStroke(1.dp, AvionicsAmber),
+                color = Color.Transparent
+            ) {
+                Text(
+                    text = modeDisplay,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (narrow) 9.sp else 11.sp,
+                    color = AvionicsAmber,
+                    modifier = Modifier.padding(
+                        horizontal = if (narrow) 6.dp else 10.dp,
+                        vertical = if (narrow) 3.dp else 4.dp
+                    )
+                )
             }
 
             TelemetryWidget(

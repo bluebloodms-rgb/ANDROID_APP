@@ -50,6 +50,10 @@ class MavlinkFlightRepository(
     // Raw data channel for parsing
     private val parseChannel = Channel<ByteArray>(Channel.UNLIMITED)
 
+    // Reassembly buffer for MAVLink v2 chunked STATUSTEXT (>50 char texts are
+    // split by ArduPilot into severity-byte-tagged fragments).
+    private val statustextChunkBuf = StringBuilder()
+
     // Jobs
     private var parseJob: Job? = null
     private var heartbeatWatchdogJob: Job? = null
@@ -226,12 +230,45 @@ class MavlinkFlightRepository(
         }
         when (message.msgId) {
             MavlinkProtocol.MSG_ID_STATUSTEXT -> {
-                val text = MavlinkProtocol.decodeStatustextPayload(message.payload)
-                if (text == null) {
-                    Timber.w("STATUSTEXT with unparsable payload (len=%d)", message.payload.size)
+                // Mirrors the Windows app (dronekit statustext_listener):
+                //  - MAVLink v2 chunked STATUSTEXT is reassembled (severity byte's
+                //    high nibble = chunk sequence; 1..14 fragments, 0xF = last).
+                //  - Only severity 6 (INFO) is forwarded to the state parser —
+                //    the drone server sends "Op:..,Md:.." with severity 6, and
+                //    FC WARNING/ERROR texts (PreArm, ...) must not touch state.
+                val payload = message.payload
+                if (payload.isEmpty()) {
+                    Timber.w("STATUSTEXT with empty payload")
                 } else {
-                    Timber.i("RX STATUSTEXT: %s", text)
-                    processStatustext(text)
+                    val severityByte = payload[0].toInt() and 0xFF
+                    val chunkSeq = (severityByte shr 4) and 0x0F
+                    val severity = severityByte and 0x0F
+                    val fragment = MavlinkProtocol.decodeStatustextPayload(payload)
+                    if (fragment == null) {
+                        Timber.w("STATUSTEXT with unparsable payload (len=%d)", payload.size)
+                    } else {
+                        val full: String? = if (chunkSeq == 0) {
+                            statustextChunkBuf.setLength(0)
+                            fragment
+                        } else {
+                            statustextChunkBuf.append(fragment)
+                            if (chunkSeq == 0x0F) {
+                                val joined = statustextChunkBuf.toString()
+                                statustextChunkBuf.setLength(0)
+                                joined
+                            } else {
+                                null
+                            }
+                        }
+                        if (full != null) {
+                            if (severity == 6) {
+                                Timber.i("RX STATUSTEXT: %s", full)
+                                processStatustext(full)
+                            } else {
+                                Timber.i("RX STATUSTEXT (sev=%d, not INFO -> ignored): %s", severity, full)
+                            }
+                        }
+                    }
                 }
             }
             MavlinkProtocol.MSG_ID_COMMAND_ACK -> processCommandAck(message)  // COMMAND_ACK

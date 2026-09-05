@@ -40,22 +40,19 @@ import com.dronegcs.app.ui.theme.scaled
 /**
  * Mobile-first slim bottom dock (replaces the always-visible Windows-style panel).
  *
- * [expand] | START | CANCEL | MODE | SWITCH
+ * [expand] | START | CANCEL | SWITCH
  *
  * The full PID / speed / target panel slides up above this dock (slider-style),
  * toggled by [onExpandClick]; [expanded] flips the chevron.
  *
- * MODE is a DISPLAY-ONLY chip: its label comes exclusively from the drone's
- * periodic STATUSTEXT echo (Md: 1=Manual, 2=Auto). It is not clickable and has
- * no local state — tapping it can never change what is shown.
- * SWITCH is the action button: one tap sends the mode-change command to the
- * drone; the resulting mode then comes back via the Md: echo into MODE.
+ * The mode DISPLAY chip (MANUAL/AUTO from the drone's Md: echo) lives in the
+ * TOP BAR — this dock only hosts the SWITCH action button. SWITCH sends the
+ * mode-change command; the displayed mode updates only from the drone's echo.
  */
 @Composable
 fun ControlDock(
     modifier: Modifier = Modifier,
     isConnected: Boolean,
-    modeDisplay: String,
     expanded: Boolean = false,
     startEnabled: Boolean = true,
     onStartClick: () -> Unit,
@@ -106,21 +103,11 @@ fun ControlDock(
                 onClick = onCancelClick,
                 modifier = Modifier.weight(1f)
             )
-            // DISPLAY-ONLY: label is 100% the drone's Md: echo ("---" until the
-            // first status message arrives). Never clickable, never optimistic.
+            // SWITCHER: sends the mode-change command (MAN<->AUTO); the displayed
+            // mode is the MODE chip in the TOP BAR and updates only from the
+            // drone's Md: echo.
             DockButton(
-                text = modeDisplay,
-                container = Color.Transparent,
-                enabled = false,
-                border = BorderStroke(1.dp, AvionicsAmber),
-                textColor = AvionicsAmber,
-                onClick = {},
-                modifier = Modifier.weight(1f)
-            )
-            // SWITCHER: sends the mode-change command; display updates only
-            // from the drone's echo.
-            DockButton(
-                text = "SWITCH",
+                text = "MAN↔AUTO",
                 container = Color.Transparent,
                 enabled = isConnected,
                 border = BorderStroke(1.dp, AvionicsAmber),

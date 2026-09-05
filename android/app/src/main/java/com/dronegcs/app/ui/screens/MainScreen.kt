@@ -266,6 +266,9 @@ fun MainScreen(
         TopBar(
             modifier = Modifier.align(Alignment.TopCenter),
             flightState = flightState,
+            // MANUAL/AUTO chip: ONLY the drone's Md: echo ("---" until the first
+            // server status message arrives — never a local default).
+            modeDisplay = if (flightState.lastStatusMessageMs > 0L) flightState.modeName else "---",
             onConnectClick = {
                 connectionViewModel.refreshBondedDevices()
                 showConnectDialog = true
@@ -372,10 +375,6 @@ fun MainScreen(
             ControlDock(
                 modifier = Modifier.fillMaxWidth(),
                 isConnected = isConnected,
-                // Mode chip shows ONLY the drone's echo: Md:1 -> MANUAL,
-                // Md:2 -> AUTO; "---" until the FIRST status message from the
-                // server actually arrives (never a local default).
-                modeDisplay = if (flightState.lastStatusMessageMs > 0L) flightState.modeName else "---",
                 expanded = showControlPanel,
                 // START disabled when (a) the drone reports Op:2, or (b) we just
                 // sent START (local latch) — re-enabled only by the drone's
