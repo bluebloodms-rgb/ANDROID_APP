@@ -20,11 +20,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -45,30 +40,29 @@ import com.dronegcs.app.ui.theme.scaled
 /**
  * Mobile-first slim bottom dock (replaces the always-visible Windows-style panel).
  *
- * [expand] | START | CANCEL | MODE
+ * [expand] | START | CANCEL | MODE | SWITCH
  *
  * The full PID / speed / target panel slides up above this dock (slider-style),
- * toggled by [onExpandClick]; [expanded] flips the chevron. MODE toggles
- * MANUAL <-> AUTO in one tap.
+ * toggled by [onExpandClick]; [expanded] flips the chevron.
+ *
+ * MODE is a DISPLAY-ONLY chip: its label comes exclusively from the drone's
+ * periodic STATUSTEXT echo (Md: 1=Manual, 2=Auto). It is not clickable and has
+ * no local state — tapping it can never change what is shown.
+ * SWITCH is the action button: one tap sends the mode-change command to the
+ * drone; the resulting mode then comes back via the Md: echo into MODE.
  */
 @Composable
 fun ControlDock(
     modifier: Modifier = Modifier,
     isConnected: Boolean,
-    modeName: String,
+    modeDisplay: String,
     expanded: Boolean = false,
     startEnabled: Boolean = true,
     onStartClick: () -> Unit,
     onCancelClick: () -> Unit,
-    onModeClick: (Command.SetMode.Mode) -> Unit,
+    onSwitchModeClick: () -> Unit,
     onExpandClick: () -> Unit
 ) {
-    // Optimistic mode toggle: the FC never echoes "Md:" on this protocol
-    // (verified in live logs), so without local state the button label would
-    // never change. FC echo (Md:) still wins whenever it does arrive.
-    var optimisticAuto by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(modeName) { optimisticAuto = null }
-    val effectiveModeName = optimisticAuto?.let { if (it) "AUTO" else "MANUAL" } ?: modeName
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -96,9 +90,9 @@ fun ControlDock(
             }
 
             DockButton(
-                // Server-driven lock: the drone's periodic "Op:.." STATUSTEXT sets
-                // Op:2 while an operation is running — START must stay disabled
-                // until the server reports Op:1 (or Can:1) again.
+                // Server-driven lock: the drone's periodic "Op:.."/"Can:.." echo
+                // (plus the local post-send latch) disable START while an
+                // operation is running. Re-enabled only by the drone's echo.
                 text = if (isConnected && !startEnabled) "RUNNING" else "START",
                 container = PhosphorGreenDim,
                 enabled = isConnected && startEnabled,
@@ -112,20 +106,26 @@ fun ControlDock(
                 onClick = onCancelClick,
                 modifier = Modifier.weight(1f)
             )
+            // DISPLAY-ONLY: label is 100% the drone's Md: echo ("---" until the
+            // first status message arrives). Never clickable, never optimistic.
             DockButton(
-                text = effectiveModeName,
+                text = modeDisplay,
                 container = Color.Transparent,
-                // Mode toggle stays usable even while disconnected (the label
-                // flip is local/optimistic; the send is a harmless no-op when
-                // offline). START/CANCEL remain connection-gated for safety.
-                enabled = true,
+                enabled = false,
                 border = BorderStroke(1.dp, AvionicsAmber),
                 textColor = AvionicsAmber,
-                onClick = {
-                    val nextAuto = effectiveModeName != "AUTO"
-                    optimisticAuto = nextAuto
-                    onModeClick(if (nextAuto) Command.SetMode.Mode.AUTO else Command.SetMode.Mode.MANUAL)
-                },
+                onClick = {},
+                modifier = Modifier.weight(1f)
+            )
+            // SWITCHER: sends the mode-change command; display updates only
+            // from the drone's echo.
+            DockButton(
+                text = "SWITCH",
+                container = Color.Transparent,
+                enabled = isConnected,
+                border = BorderStroke(1.dp, AvionicsAmber),
+                textColor = AvionicsAmber,
+                onClick = onSwitchModeClick,
                 modifier = Modifier.weight(1f)
             )
         }

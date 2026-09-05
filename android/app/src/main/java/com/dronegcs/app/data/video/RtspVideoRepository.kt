@@ -37,6 +37,14 @@ class RtspVideoRepository(
     private var playerView: PlayerView? = null
     private var watchdogJob: Job? = null
 
+    private companion object {
+        // Restart the stream after this long stuck in BUFFERING.
+        const val STALL_RESTART_MS = 10_000L
+    }
+
+    // Last successfully-started URL, used by the stall watchdog to recover.
+    private var lastUrl: String? = null
+
     // URL requested via play() before the player/view was ready (e.g. when the
     // source is restored on app launch before the UI binds the PlayerView).
     private var pendingUrl: String? = null
@@ -112,28 +120,35 @@ class RtspVideoRepository(
         Timber.d("ExoPlayer initialized for RTSP")
     }
 
-    /** Catch-up watchdog: if decode drift pushes us behind the live edge,
-     *  briefly play faster (1.1x) to re-sync, else restore 1.0x. */
+    /** Live watchdog: restart the stream if it stalls (TCP can block silently
+     *  after a heavy loss burst; auto-recover instead of a frozen image). */
     private fun startWatchdog() {
         watchdogJob?.cancel()
+        var bufferingSinceMs = 0L
         watchdogJob = mainScope.launch {
             while (isActive) {
                 delay(2000)
                 val p = player ?: break
-                if (p.playbackState != ExoPlayer.STATE_READY || !p.playWhenReady) continue
-                try {
-                    val offset = p.currentLiveOffset
-                    if (offset > 600) {
-                        p.setPlaybackSpeed(1.1f)
-                        Timber.d("Live catch-up: offset=${offset}ms -> speed 1.1x")
-                    } else if (offset in 0..200) {
-                        p.setPlaybackSpeed(1.0f)
+                if (!p.playWhenReady) continue
+                val now = System.currentTimeMillis()
+                if (p.playbackState == ExoPlayer.STATE_BUFFERING) {
+                    if (bufferingSinceMs == 0L) {
+                        bufferingSinceMs = now
+                    } else if (now - bufferingSinceMs > STALL_RESTART_MS) {
+                        Timber.w("RTSP stream stalled >${STALL_RESTART_MS / 1000}s - restarting")
+                        bufferingSinceMs = 0L
+                        restartPlayback()
                     }
-                } catch (_: Exception) {
-                    // currentLiveOffset is unset for non-live windows
+                } else {
+                    bufferingSinceMs = 0L
                 }
             }
         }
+    }
+
+    private fun restartPlayback() {
+        val url = pendingUrl ?: lastUrl ?: return
+        startPlayback(url)
     }
 
     private fun startPlayback(rtspUrl: String) {
@@ -150,6 +165,10 @@ class RtspVideoRepository(
                 )
                 .build()
             val mediaSource = RtspMediaSource.Factory()
+                // RTP over TCP (interleaved): UDP loses packets on the lossy SIYI
+                // WiFi link and H.264 renders green/magenta macroblock smear.
+                // TCP delivers every packet (or stalls) -> no corruption.
+                .setForceUseRtpTcp(true)
                 .setTimeoutMs(5000)
                 .createMediaSource(mediaItem)
             exoPlayer.setMediaSource(mediaSource)
@@ -158,6 +177,7 @@ class RtspVideoRepository(
             exoPlayer.setPlaybackSpeed(1.0f)
             _buffering.value = true
             _error.value = null
+            lastUrl = rtspUrl
             startWatchdog()
             Timber.d("Starting RTSP stream: $rtspUrl")
         } catch (e: Exception) {

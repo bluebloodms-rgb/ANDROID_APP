@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import timber.log.Timber
+import com.dronegcs.app.BuildConfig
 
 /**
  * Repository for MAVLink flight data
@@ -263,7 +264,7 @@ class MavlinkFlightRepository(
     }
 
     private fun processStatustext(text: String) {
-        Timber.d("[RX STATUSTEXT] $text")
+        if (BuildConfig.DEBUG) Timber.d("[RX STATUSTEXT] $text")
         _flightState.update { current ->
             current.updateFromMessage(text)
         }
@@ -289,7 +290,7 @@ class MavlinkFlightRepository(
         _flightState.update { current ->
             current.updateHeartbeat(armed = armed, customMode = mc)
         }
-        Timber.d("HEARTBEAT: custom_mode=$mc armed=$armed")
+        if (BuildConfig.DEBUG) Timber.d("HEARTBEAT: custom_mode=$mc armed=$armed")
     }
 
     private fun processBattery(message: MavlinkMessage) {
@@ -303,7 +304,7 @@ class MavlinkFlightRepository(
                 _flightState.update { current ->
                     current.updateTelemetry(battery = voltageMv / 1000.0f)
                 }
-                Timber.d("BATTERY_STATUS: battery=%.2fV", voltageMv / 1000.0f)
+                if (BuildConfig.DEBUG) Timber.d("BATTERY_STATUS: battery=%.2fV", voltageMv / 1000.0f)
             }
         }
     }
@@ -318,7 +319,7 @@ class MavlinkFlightRepository(
                 _flightState.update { current ->
                     current.updateTelemetry(battery = voltageMv / 1000.0f)
                 }
-                Timber.d("SYS_STATUS: battery=%.2fV", voltageMv / 1000.0f)
+                if (BuildConfig.DEBUG) Timber.d("SYS_STATUS: battery=%.2fV", voltageMv / 1000.0f)
             }
         }
     }
@@ -351,7 +352,7 @@ class MavlinkFlightRepository(
 
             val satellites = message.payload[29].toInt() and 0xFF
 
-            Timber.d("GPS_RAW_INT: eph=%d -> hdop=%.2f sats=%d", eph, hdop, satellites)
+            if (BuildConfig.DEBUG) Timber.d("GPS_RAW_INT: eph=%d -> hdop=%.2f sats=%d", eph, hdop, satellites)
 
             _flightState.update { current ->
                 current.updateTelemetry(
@@ -377,7 +378,7 @@ class MavlinkFlightRepository(
             val lon = java.nio.ByteBuffer.wrap(message.payload, 8, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
 
-            Timber.d("GLOBAL_POSITION_INT: lat=%.7f lon=%.7f relative_alt=%.2fm", lat, lon, altitude)
+            if (BuildConfig.DEBUG) Timber.d("GLOBAL_POSITION_INT: lat=%.7f lon=%.7f relative_alt=%.2fm", lat, lon, altitude)
 
             if (altitude >= -100f && altitude < 10000f) { // sanity check
                 _flightState.update { current ->

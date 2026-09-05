@@ -84,6 +84,7 @@ import com.dronegcs.app.ui.components.controls.ZoomPill
 import com.dronegcs.app.ui.components.hud.CrosshairOverlay
 import com.dronegcs.app.ui.components.hud.TapReticle
 import com.dronegcs.app.ui.components.hud.TopBar
+import com.dronegcs.app.ui.components.video.VideoCoordinateMapper
 import com.dronegcs.app.ui.components.video.VideoSurface
 import com.dronegcs.app.viewmodel.CameraViewModel
 import com.dronegcs.app.viewmodel.ConnectionViewModel
@@ -166,12 +167,23 @@ fun MainScreen(
     var showControlPanel by remember { mutableStateOf(false) }
     // Hoisted PID field state: filled by BottomControlPanel, collected+cleared by START
     val pidFields = remember { PidFieldsState() }
+    // START send-latch: set the moment START is tapped (button fully disabled),
+    // cleared ONLY by the drone's echo reporting Ready (Op:1 && Can:0).
+    var startLatch by remember { mutableStateOf(false) }
+    LaunchedEffect(flightState.op, flightState.can, flightState.initialized) {
+        if (flightState.initialized && flightState.op == 1 && flightState.can == 0) {
+            startLatch = false
+        }
+    }
     var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
     var lastSentPitch by remember { mutableStateOf(0f) }
     LaunchedEffect(flightState.pitch) { flightState.pitch?.let { displayPitch = it } }
 
     var tapPosition by remember { mutableStateOf<Offset?>(null) }
     var surfaceSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Active video source: determines how taps map to 1280x720 coordinates.
+    val videoSource by cameraViewModel.videoSource.collectAsStateWithLifecycle()
 
     LaunchedEffect(tapPosition) {
         if (tapPosition != null) {
@@ -203,12 +215,20 @@ fun MainScreen(
     }
 
     val onVideoTap: (Float, Float) -> Unit = { x, y ->
-        val w = surfaceSize.width.coerceAtLeast(1)
-        val h = surfaceSize.height.coerceAtLeast(1)
-        val fx = ((x / w) * 1280f).roundToInt()
-        val fy = ((y / h) * 720f).roundToInt()
+        val w = surfaceSize.width
+        val h = surfaceSize.height
+        // Map the tap through the actual displayed video rect to 1280x720
+        // (drone resolution). Phone-camera preview is FILL_CENTER (cropped),
+        // RTSP PlayerView is FIT (letterboxed) — different scales.
+        val (fx, fy) = VideoCoordinateMapper.map(
+            tapX = x,
+            tapY = y,
+            viewW = w,
+            viewH = h,
+            fillCenter = videoSource is VideoSource.PhoneCamera
+        )
         if (isConnected) connectionViewModel.sendPosition(fx, fy)
-        tapPosition = Offset(x / w, y / h)
+        tapPosition = if (w > 0 && h > 0) Offset(x / w, y / h) else null
     }
 
     // ---------- Layout ----------
@@ -352,20 +372,36 @@ fun MainScreen(
             ControlDock(
                 modifier = Modifier.fillMaxWidth(),
                 isConnected = isConnected,
-                modeName = flightState.modeName,
+                // Mode chip shows ONLY the drone's echo: Md:1 -> MANUAL,
+                // Md:2 -> AUTO; "---" until the FIRST status message from the
+                // server actually arrives (never a local default).
+                modeDisplay = if (flightState.lastStatusMessageMs > 0L) flightState.modeName else "---",
                 expanded = showControlPanel,
-                // Server state drives the dock: Op:2 = operation in progress ->
-                // START disabled; Md: echoes fill the MODE button label.
-                startEnabled = flightState.op != 2,
+                // START disabled when (a) the drone reports Op:2, or (b) we just
+                // sent START (local latch) — re-enabled only by the drone's
+                // periodic echo reporting Ready again (Op:1 && Can:0).
+                startEnabled = flightState.op != 2 && !startLatch,
                 onStartClick = {
+                    if (startLatch) return@ControlDock
                     // Exactly like the Windows app: send START:TRUE with the filled
                     // PID values ("y1=..,d1=..,..."), then clear all the fields.
                     val pidValues = pidFields.pidValuesString()
                     connectionViewModel.sendStart(pidValues.ifBlank { null })
                     pidFields.clear()
+                    // Immediately disable: the button stays dead until the drone
+                    // itself reports the state back — no local re-enable.
+                    startLatch = true
                 },
                 onCancelClick = { connectionViewModel.sendCancel() },
-                onModeClick = { mode -> connectionViewModel.sendMode(mode) },
+                // SWITCHER: sends the opposite of the drone-echoed mode. The MODE
+                // chip never changes locally — it flips only when the drone's
+                // periodic Md: echo confirms the new mode.
+                onSwitchModeClick = {
+                    connectionViewModel.sendMode(
+                        if (flightState.md == 2) Command.SetMode.Mode.MANUAL
+                        else Command.SetMode.Mode.AUTO
+                    )
+                },
                 onExpandClick = { showControlPanel = !showControlPanel }
             )
         }

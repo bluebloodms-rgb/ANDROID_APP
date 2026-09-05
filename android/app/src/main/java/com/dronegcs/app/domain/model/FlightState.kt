@@ -32,6 +32,9 @@ data class FlightState(
 
     // Heartbeat tracking
     val lastHeartbeat: Long = 0,
+    // Wall-clock of the last server STATUSTEXT (Op:...,Md:...). Used by the UI
+    // to know whether the mode chip has EVER been echoed by the drone.
+    val lastStatusMessageMs: Long = 0,
     val isArmed: Boolean = false,
     val fcMode: Int? = null,   // ArduPilot custom_mode from HEARTBEAT
 
@@ -78,7 +81,8 @@ data class FlightState(
             pitch = newPitch,
             can = newCan,
             zoom = newZoom,
-            initialized = true
+            initialized = true,
+            lastStatusMessageMs = System.currentTimeMillis()
         )
     }
 
