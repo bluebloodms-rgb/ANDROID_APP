@@ -1,7 +1,6 @@
 package com.dronegcs.app.ui.components.hud
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ButtonDefaults
@@ -71,21 +69,26 @@ fun TopBar(
         BoxWithConstraints {
             // Compact below 560dp: covers small phones in landscape (e.g. a
             // 720p device at ~550-780dp) where the full-size row overflows.
-            val narrow = maxWidth < 560.dp
+            // 720p landscape phones report ~640dp width — well above the old
+            // 560dp threshold, so they got the overflowing full-size row.
+            // 700dp covers them (and everything smaller) with the compact row.
+            val narrow = maxWidth < 700.dp
         Row(
             modifier = Modifier
                 .statusBarsPadding()
                 .fillMaxWidth()
                 .height(52.dp)
-                .padding(horizontal = if (narrow) 4.dp else 8.dp)
-                .horizontalScroll(rememberScrollState()),
+                .padding(horizontal = if (narrow) 4.dp else 8.dp),
+            // NO horizontalScroll: a scrollable top bar hides the RTSP icon
+            // off-screen (users had to swipe right to find it). The row must
+            // always FIT; compact mode guarantees that on 720p landscape phones.
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (narrow) 3.dp else 6.dp)
         ) {
             ConnectionStatusBadge(
                 isConnected = isConnected,
                 isConnecting = isConnecting,
-                deviceName = (connection as? ConnectionState.Connected)?.deviceName,
+                deviceName = (connection as? ConnectionState.Connected)?.deviceName?.takeLast(10),
                 compact = narrow
             )
 

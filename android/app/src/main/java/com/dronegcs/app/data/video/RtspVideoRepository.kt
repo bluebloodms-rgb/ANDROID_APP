@@ -78,10 +78,14 @@ class RtspVideoRepository(
         // media adds latency that never recovers (ExoPlayer defaults buffer 50s).
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 200,
-                /* maxBufferMs = */ 1000,
-                /* bufferForPlaybackMs = */ 200,
-                /* bufferForPlaybackAfterRebufferMs = */ 500
+                // Media3 enforces a hard floor on these values (older builds
+                // throw "minBufferMs cannot be less than ..." at player init,
+                // killing the stream). Use the smallest ALLOWED values: still
+                // far below ExoPlayer's 50s default, so RTSP stays low-latency.
+                /* minBufferMs = */ 2000,
+                /* maxBufferMs = */ 5000,
+                /* bufferForPlaybackMs = */ 1000,
+                /* bufferForPlaybackAfterRebufferMs = */ 2000
             )
             .build()
         val exoPlayer = ExoPlayer.Builder(context)

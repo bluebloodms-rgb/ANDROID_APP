@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.dronegcs.app.ui.components.hud.ChamferShape
 import com.dronegcs.app.ui.theme.TextPrimary
+import androidx.compose.foundation.border
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -232,7 +233,15 @@ private fun MiniPidField(
         ),
         modifier = Modifier
             .size(width = 34.dp.scaled(), height = 38.dp.scaled())
-            .background(PanelTranslucent, RoundedCornerShape(4.dp.scaled()))
+            // High-contrast field: solid light fill + border so the boxes and
+            // their text stay readable over the dark panel (they previously
+            // used a translucent fill that vanished into the background).
+            .background(Color(0xFF232D38), RoundedCornerShape(4.dp.scaled()))
+            .border(
+                width = 1.dp,
+                color = Color(0xFF5A6B7B),
+                shape = RoundedCornerShape(4.dp.scaled())
+            )
             .padding(horizontal = 3.dp),
         decorationBox = { innerTextField ->
             Box(
@@ -243,7 +252,7 @@ private fun MiniPidField(
                     Text(
                         text = label,
                         fontSize = 7.sp,
-                        color = Color(0xFF777777),
+                        color = Color(0xFF8FA0B0),
                         maxLines = 1
                     )
                 }
