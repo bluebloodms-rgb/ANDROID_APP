@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import timber.log.Timber
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.text.KeyboardOptions
@@ -230,6 +231,7 @@ fun MainScreen(
             viewH = h,
             fillCenter = videoSource is VideoSource.PhoneCamera
         )
+        Timber.d("Video tap (%.0f,%.0f) -> Pos:%d,%d (connected=%s, source=%s)", x, y, fx, fy, isConnected, videoSource::class.simpleName)
         if (isConnected) connectionViewModel.sendPosition(fx, fy)
         tapPosition = if (w > 0 && h > 0) Offset(x / w, y / h) else null
     }

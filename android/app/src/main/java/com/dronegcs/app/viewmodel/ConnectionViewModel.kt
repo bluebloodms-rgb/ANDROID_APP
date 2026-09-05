@@ -100,6 +100,7 @@ class ConnectionViewModel @Inject constructor(
         viewModelScope.launch {
             mavlinkRepository.connectionState
                 .collect { state ->
+                    Timber.d("Connection state -> %s", state)
                     val previousState = _uiState.value
                     _uiState.update { current ->
                         when (state) {

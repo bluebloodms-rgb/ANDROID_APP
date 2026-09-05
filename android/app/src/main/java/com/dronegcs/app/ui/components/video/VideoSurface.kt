@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,14 +58,20 @@ fun VideoSurface(
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
 
+    // ALWAYS read the latest callback at tap time. The pointerInput block below
+    // is keyed on Unit (it must not restart on every recomposition), so without
+    // rememberUpdatedState it would capture the FIRST composition's `onTap`
+    // lambda forever — one whose captured state (e.g. isConnected) is stale.
+    // That is exactly why tap-to-position stopped sending while the reticle
+    // still appeared: the stale lambda saw isConnected == false.
+    val currentOnTap by rememberUpdatedState(onTap)
+
     val tapModifier = modifier
         .fillMaxSize()
         .pointerInput(Unit) {
-            onTap?.let { callback ->
-                detectTapGestures(
-                    onTap = { offset -> callback(offset.x, offset.y) }
-                )
-            }
+            detectTapGestures(
+                onTap = { offset -> currentOnTap?.invoke(offset.x, offset.y) }
+            )
         }
 
     Box(modifier = tapModifier) {
