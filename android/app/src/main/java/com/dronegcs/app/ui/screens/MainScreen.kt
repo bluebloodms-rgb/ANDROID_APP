@@ -354,6 +354,9 @@ fun MainScreen(
                 isConnected = isConnected,
                 modeName = flightState.modeName,
                 expanded = showControlPanel,
+                // Server state drives the dock: Op:2 = operation in progress ->
+                // START disabled; Md: echoes fill the MODE button label.
+                startEnabled = flightState.op != 2,
                 onStartClick = {
                     // Exactly like the Windows app: send START:TRUE with the filled
                     // PID values ("y1=..,d1=..,..."), then clear all the fields.

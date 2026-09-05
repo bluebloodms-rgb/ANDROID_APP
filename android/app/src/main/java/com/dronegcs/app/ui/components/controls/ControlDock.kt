@@ -57,6 +57,7 @@ fun ControlDock(
     isConnected: Boolean,
     modeName: String,
     expanded: Boolean = false,
+    startEnabled: Boolean = true,
     onStartClick: () -> Unit,
     onCancelClick: () -> Unit,
     onModeClick: (Command.SetMode.Mode) -> Unit,
@@ -95,9 +96,12 @@ fun ControlDock(
             }
 
             DockButton(
-                text = "START",
+                // Server-driven lock: the drone's periodic "Op:.." STATUSTEXT sets
+                // Op:2 while an operation is running — START must stay disabled
+                // until the server reports Op:1 (or Can:1) again.
+                text = if (isConnected && !startEnabled) "RUNNING" else "START",
                 container = PhosphorGreenDim,
-                enabled = isConnected,
+                enabled = isConnected && startEnabled,
                 onClick = onStartClick,
                 modifier = Modifier.weight(1f)
             )
