@@ -168,10 +168,13 @@ fun MainScreen(
     // Hoisted PID field state: filled by BottomControlPanel, collected+cleared by START
     val pidFields = remember { PidFieldsState() }
     // START send-latch: set the moment START is tapped (button fully disabled),
-    // cleared ONLY by the drone's echo reporting Ready (Op:1 && Can:0).
+    // cleared ONLY by the drone's echo reporting "not operating" (Op:0 idle or
+    // Op:1 ready, with Can:0). Op:0 matters: after the server restarts or a
+    // CANCEL it reports Op:0, and a latch keyed only on Op:1 would never clear
+    // (START stuck on "RUNNING" forever).
     var startLatch by remember { mutableStateOf(false) }
     LaunchedEffect(flightState.op, flightState.can, flightState.initialized) {
-        if (flightState.initialized && flightState.op == 1 && flightState.can == 0) {
+        if (flightState.initialized && flightState.op != 2 && flightState.can == 0) {
             startLatch = false
         }
     }
