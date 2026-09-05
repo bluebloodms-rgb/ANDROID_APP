@@ -94,6 +94,7 @@ fun TopBar(
 
             // Flight mode chip (Guided / AltHold / ... from HEARTBEAT custom_mode)
             // TOP BAR ONLY — the bottom dock shows Manual/Auto from STATUSTEXT Md.
+            // Always visible; shrinks on narrow screens instead of being removed.
             flightState.fcModeName?.let { mode ->
                 Surface(
                     shape = ChamferShape(6.dp.scaled()),
@@ -102,9 +103,12 @@ fun TopBar(
                     Text(
                         text = mode,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
+                        fontSize = if (narrow) 9.sp else 11.sp,
                         color = Color(0xFFFFD54F),
-                        modifier = Modifier.padding(horizontal = 10.dp.scaled(), vertical = 4.dp.scaled())
+                        modifier = Modifier.padding(
+                            horizontal = if (narrow) 6.dp else 10.dp,
+                            vertical = if (narrow) 3.dp else 4.dp
+                        )
                     )
                 }
             }
@@ -129,13 +133,13 @@ fun TopBar(
                 unit = "m",
                 compact = narrow
             )
-            if (!narrow) {
-                TelemetryWidget(
-                    iconRes = R.drawable.ic_hdop,
-                    label = "HDOP",
-                    value = flightState.hdop?.let { "%.1f".format(it) } ?: "--"
-                )
-            }
+            // HDOP is always shown; compact sizing keeps it small on narrow screens.
+            TelemetryWidget(
+                iconRes = R.drawable.ic_hdop,
+                label = "HDOP",
+                value = flightState.hdop?.let { "%.1f".format(it) } ?: "--",
+                compact = narrow
+            )
 
             Spacer(modifier = Modifier.width(4.dp))
 
