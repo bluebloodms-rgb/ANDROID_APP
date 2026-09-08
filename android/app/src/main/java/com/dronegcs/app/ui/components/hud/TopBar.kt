@@ -65,8 +65,8 @@ fun TopBar(
     ) {
         // Small screens (Android 9 test phone, ~360 dp wide in landscape):
         // the badge + 4 chips + CONNECT + videocam do not fit, forcing a swipe.
-        // Drop the HDOP chip (least critical) and tighten spacing on narrow
-        // widths so everything fits without scrolling.
+        // HDOP was dropped in favor of the AGL (rangefinder) chip; compact
+        // spacing on narrow widths keeps everything fitting without scrolling.
         BoxWithConstraints {
             // Compact below 560dp: covers small phones in landscape (e.g. a
             // 720p device at ~550-780dp) where the full-size row overflows.
@@ -153,11 +153,13 @@ fun TopBar(
                 unit = "m",
                 compact = narrow
             )
-            // HDOP is always shown; compact sizing keeps it small on narrow screens.
+            // AGL: height Above Ground Level from the RANGEFINDER sensor.
+            // Kept separate from barometric ALT — never overwritten by it.
             TelemetryWidget(
-                iconRes = R.drawable.ic_hdop,
-                label = "HDOP",
-                value = flightState.hdop?.let { "%.1f".format(it) } ?: "--",
+                iconRes = R.drawable.ic_location,
+                label = "AGL",
+                value = flightState.altitudeAgl?.let { "%.1f".format(it) } ?: "--",
+                unit = "m",
                 compact = narrow
             )
 

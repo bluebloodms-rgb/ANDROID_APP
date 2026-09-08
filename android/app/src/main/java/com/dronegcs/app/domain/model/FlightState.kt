@@ -25,7 +25,10 @@ data class FlightState(
 
     // Telemetry for overlays
     val battery: Float? = null,
+    // Barometric altitude (EKF) relative to home — from GLOBAL_POSITION_INT
     val altitude: Float? = null,
+    // Height Above Ground Level from the RANGEFINDER sensor (meters)
+    val altitudeAgl: Float? = null,
     val hdop: Float? = null,
     val mode: String? = null,
     val satellites: Int? = null,
@@ -89,6 +92,7 @@ data class FlightState(
     fun updateTelemetry(
         battery: Float? = null,
         altitude: Float? = null,
+        altitudeAgl: Float? = null,
         hdop: Float? = null,
         mode: String? = null,
         satellites: Int? = null
@@ -96,6 +100,7 @@ data class FlightState(
         return copy(
             battery = battery ?: this.battery,
             altitude = altitude ?: this.altitude,
+            altitudeAgl = altitudeAgl ?: this.altitudeAgl,
             hdop = hdop ?: this.hdop,
             mode = mode ?: this.mode,
             satellites = satellites ?: this.satellites
