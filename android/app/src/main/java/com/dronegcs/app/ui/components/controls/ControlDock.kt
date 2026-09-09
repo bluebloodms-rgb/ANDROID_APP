@@ -28,6 +28,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import com.dronegcs.app.domain.model.Command
 import com.dronegcs.app.ui.theme.AlertRed
 import com.dronegcs.app.ui.theme.AvionicsAmber
@@ -129,22 +143,75 @@ private fun DockButton(
     border: BorderStroke? = null,
     textColor: Color = Color.White
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
+    // --- Tap feedback animation -------------------------------------------
+    // Material's ripple only shows while the finger is DOWN, so it is gone by
+    // the time the user lifts it and cannot answer "what did I just tap?".
+    // Instead we detect the press -> RELEASE transition and fire a short
+    // pulse that plays AFTER lift-off: the button flashes bright (overlay +
+    // glowing border) and does a quick scale down-up bounce (~320 ms).
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    var wasPressed by remember { mutableStateOf(false) }
+    val pulse = remember { Animatable(0f) }
+
+    LaunchedEffect(pressed) {
+        if (!pressed && wasPressed) {
+            // Released: play the pulse now (1 = fully lit, 0 = idle).
+            pulse.snapTo(1f)
+            pulse.animateTo(0f, animationSpec = tween(durationMillis = 320))
+        }
+        wasPressed = pressed
+    }
+
+    // Pressing squeezes slightly (also gives instant feedback before lift);
+    // on release the pulse animates the flash on top of the rebound.
+    val scale = if (pressed) 0.94f else 1f - 0.06f * pulse.value
+
+    Box(
         modifier = modifier
-            .width(120.dp.scaled())
-            .height(44.dp.scaled()),
-        shape = ChamferShape(8.dp.scaled()),
-        border = border,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = container,
-            contentColor = textColor,
-            disabledContainerColor = container.copy(alpha = 0.35f),
-            disabledContentColor = textColor.copy(alpha = 0.4f)
-        )
+            .wrapContentSize(align = Alignment.Center)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .drawWithContent {
+                drawContent()
+                // Bright wash over the whole button, fading out with the pulse.
+                if (pulse.value > 0f) {
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.45f * pulse.value),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
+                    )
+                }
+            }
     ) {
-        Text(text = text, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
-        if (!enabled) Spacer(Modifier.size(0.dp))
+        // Glowing outline that only exists while the pulse is running.
+        if (pulse.value > 0f) {
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                shape = ChamferShape(8.dp.scaled()),
+                color = Color.Transparent,
+                border = BorderStroke(2.dp, textColor.copy(alpha = pulse.value))
+            ) {}
+        }
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            interactionSource = interactionSource,
+            modifier = Modifier
+                .width(120.dp.scaled())
+                .height(44.dp.scaled()),
+            shape = ChamferShape(8.dp.scaled()),
+            border = border,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = container,
+                contentColor = textColor,
+                disabledContainerColor = container.copy(alpha = 0.35f),
+                disabledContentColor = textColor.copy(alpha = 0.4f)
+            )
+        ) {
+            Text(text = text, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+            if (!enabled) Spacer(Modifier.size(0.dp))
+        }
     }
 }

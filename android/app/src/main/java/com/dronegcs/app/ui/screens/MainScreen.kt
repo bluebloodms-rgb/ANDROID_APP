@@ -396,7 +396,14 @@ fun MainScreen(
                     // itself reports the state back — no local re-enable.
                     startLatch = true
                 },
-                onCancelClick = { connectionViewModel.sendCancel() },
+                // OPTION 1: tap ALWAYS clears the local START latch, even if the
+                // drone never echoes (idle server ignores CANCEL / echo lost).
+                // Self-heals a UI stuck on "RUNNING" — one tap re-enables START.
+                // The drone's Op:/Can: echo still corrects the state afterwards.
+                onCancelClick = {
+                    startLatch = false
+                    connectionViewModel.sendCancel()
+                },
                 // SWITCHER: sends the opposite of the drone-echoed mode. The MODE
                 // chip never changes locally — it flips only when the drone's
                 // periodic Md: echo confirms the new mode.
