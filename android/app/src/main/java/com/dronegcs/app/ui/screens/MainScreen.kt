@@ -168,16 +168,12 @@ fun MainScreen(
     var showControlPanel by remember { mutableStateOf(false) }
     // Hoisted PID field state: filled by BottomControlPanel, collected+cleared by START
     val pidFields = remember { PidFieldsState() }
-    // START send-latch: set the moment START is tapped (button fully disabled),
-    // cleared ONLY by the drone's echo reporting "not operating" (Op:0 idle or
-    // Op:1 ready, with Can:0). Op:0 matters: after the server restarts or a
-    // CANCEL it reports Op:0, and a latch keyed only on Op:1 would never clear
-    // (START stuck on "RUNNING" forever).
-    var startLatch by remember { mutableStateOf(false) }
-    LaunchedEffect(flightState.op, flightState.can, flightState.initialized) {
-        if (flightState.initialized && flightState.op != 2 && flightState.can == 0) {
-            startLatch = false
-        }
+    // RUNNING is fully drone-driven: START is disabled only while the drone's
+    // own echo reports Op:2. No local latch — if the drone never receives START,
+    // the button stays START (no false "RUNNING").
+    var startSending by remember { mutableStateOf(false) }   // brief "SENDING…" hint
+    LaunchedEffect(startSending) {
+        if (startSending) { delay(2500); startSending = false }
     }
     var displayPitch by remember { mutableStateOf(flightState.pitch ?: 0f) }
     var lastSentPitch by remember { mutableStateOf(0f) }
@@ -381,27 +377,19 @@ fun MainScreen(
                 modifier = Modifier.fillMaxWidth(),
                 isConnected = isConnected,
                 expanded = showControlPanel,
-                // START disabled when (a) the drone reports Op:2, or (b) we just
-                // sent START (local latch) — re-enabled only by the drone's
-                // periodic echo reporting Ready again (Op:1 && Can:0).
-                startEnabled = flightState.op != 2 && !startLatch,
+                // Drone-driven: disabled ONLY while the drone reports Op:2.
+                // "SENDING…" shows briefly after a tap (until the echo arrives).
+                startEnabled = flightState.op != 2,
+                startSending = startSending,
                 onStartClick = {
-                    if (startLatch) return@ControlDock
                     // Exactly like the Windows app: send START:TRUE with the filled
                     // PID values ("y1=..,d1=..,..."), then clear all the fields.
                     val pidValues = pidFields.pidValuesString()
                     connectionViewModel.sendStart(pidValues.ifBlank { null })
                     pidFields.clear()
-                    // Immediately disable: the button stays dead until the drone
-                    // itself reports the state back — no local re-enable.
-                    startLatch = true
+                    startSending = true
                 },
-                // OPTION 1: tap ALWAYS clears the local START latch, even if the
-                // drone never echoes (idle server ignores CANCEL / echo lost).
-                // Self-heals a UI stuck on "RUNNING" — one tap re-enables START.
-                // The drone's Op:/Can: echo still corrects the state afterwards.
                 onCancelClick = {
-                    startLatch = false
                     connectionViewModel.sendCancel()
                 },
                 // SWITCHER: sends the opposite of the drone-echoed mode. The MODE

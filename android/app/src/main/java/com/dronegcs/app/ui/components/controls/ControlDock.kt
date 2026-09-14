@@ -67,6 +67,7 @@ fun ControlDock(
     isConnected: Boolean,
     expanded: Boolean = false,
     startEnabled: Boolean = true,
+    startSending: Boolean = false,
     onStartClick: () -> Unit,
     onCancelClick: () -> Unit,
     onSwitchModeClick: () -> Unit,
@@ -99,10 +100,13 @@ fun ControlDock(
             }
 
             DockButton(
-                // Server-driven lock: the drone's periodic "Op:.."/"Can:.." echo
-                // (plus the local post-send latch) disable START while an
-                // operation is running. Re-enabled only by the drone's echo.
-                text = if (isConnected && !startEnabled) "RUNNING" else "START",
+                // Fully drone-driven: RUNNING only while the drone reports Op:2.
+                // "SENDING…" is a brief hint between tap and the drone's echo.
+                text = when {
+                    !startEnabled -> "RUNNING"
+                    startSending -> "SENDING…"
+                    else -> "START"
+                },
                 container = PhosphorGreenDim,
                 enabled = isConnected && startEnabled,
                 onClick = onStartClick,
