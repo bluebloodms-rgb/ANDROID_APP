@@ -25,6 +25,9 @@ android {
 
     buildTypes {
         release {
+            // Personal sideload release: signed with the debug keystore so the
+            // APK installs without a dedicated release key.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -2,7 +2,6 @@
 -keep class dagger.** { *; }
 -dontwarn dagger.internal.codegen.**
 -keep class javax.inject.** { *; }
--keep @javax.inject.Scope * { *; }
 -keep @interface dagger.* { *; }
 -keepclassmembers,allowobfuscation class * extends dagger.hilt.android.internal.managers.ComponentSupplier {
     *;
