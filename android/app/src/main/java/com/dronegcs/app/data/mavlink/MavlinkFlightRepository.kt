@@ -282,7 +282,8 @@ class MavlinkFlightRepository(
             0 -> processHeartbeat(message)        // HEARTBEAT
             1 -> processSysStatus(message)        // SYS_STATUS (ArduPilot battery voltage)
             24 -> processGps(message)             // GPS_RAW_INT
-            33 -> processGlobalPosition(message)  // GLOBAL_POSITION_INT (relative_alt, lat, lon)
+            33 -> processGlobalPosition(message)  // GLOBAL_POSITION_INT (lat, lon)
+            178 -> processAhrs2(message)          // AHRS2 (EKF altitude -> ALT chip)
             147 -> processBattery(message)        // BATTERY_STATUS
             173 -> processRangefinder(message)    // RANGEFINDER (ArduPilot dialect)
             else -> Timber.v("Unhandled MAVLink message: ${message.msgId}")
@@ -412,20 +413,27 @@ class MavlinkFlightRepository(
     private fun processGlobalPosition(message: MavlinkMessage) {
         // GLOBAL_POSITION_INT wire layout:
         // time_boot_ms(4) lat(4) lon(4) alt(4) relative_alt(4) vx(2) vy(2) vz(2) hdg(2)
-        // relative_alt at offset 16 (int32_t, mm)
-        if (message.payload.size >= 20) {
-            val relativeAltMm = java.nio.ByteBuffer.wrap(message.payload, 16, 4)
-                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
-            val altitude = relativeAltMm / 1000.0f // convert mm to meters
-
-            // Also extract lat/lon for potential future use
+        // ALTITUDE no longer comes from here — the ALT chip is AHRS2-driven.
+        // Kept for lat/lon (future use).
+        if (message.payload.size >= 12) {
             val lat = java.nio.ByteBuffer.wrap(message.payload, 4, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
             val lon = java.nio.ByteBuffer.wrap(message.payload, 8, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
+            if (BuildConfig.DEBUG) Timber.d("GLOBAL_POSITION_INT: lat=%.7f lon=%.7f", lat, lon)
+        }
+    }
 
-            if (BuildConfig.DEBUG) Timber.d("GLOBAL_POSITION_INT: lat=%.7f lon=%.7f relative_alt=%.2fm", lat, lon, altitude)
-
+    private fun processAhrs2(message: MavlinkMessage) {
+        // AHRS2 wire layout (ArduPilot, msg id 178):
+        // roll(f32)@0  pitch(f32)@4  yaw(f32)@8  altitude(f32)@12  lat(i32)@16  lon(i32)@20
+        // altitude is in CENTIMETERS relative to EKF origin (home) -> meters.
+        // ALT chip = AHRS2; AGL chip = RANGEFINDER (see processRangefinder).
+        if (message.payload.size >= 16) {
+            val altitudeCm = java.nio.ByteBuffer.wrap(message.payload, 12, 4)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN).float
+            val altitude = altitudeCm / 100.0f // cm -> m
+            if (BuildConfig.DEBUG) Timber.d("AHRS2: altitude=%.2fm", altitude)
             if (altitude >= -100f && altitude < 10000f) { // sanity check
                 _flightState.update { current ->
                     current.updateTelemetry(altitude = altitude)
