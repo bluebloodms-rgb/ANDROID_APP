@@ -427,12 +427,13 @@ class MavlinkFlightRepository(
     private fun processAhrs2(message: MavlinkMessage) {
         // AHRS2 wire layout (ArduPilot, msg id 178):
         // roll(f32)@0  pitch(f32)@4  yaw(f32)@8  altitude(f32)@12  lat(i32)@16  lon(i32)@20
-        // altitude is in CENTIMETERS relative to EKF origin (home) -> meters.
+        // altitude is in METERS (MAVLink AHRS2 spec) relative to EKF origin —
+        // used directly, exactly like the Windows app:
+        //   self.altitude_AHRS2 = msg.altitude  (meters, no conversion)
         // ALT chip = AHRS2; AGL chip = RANGEFINDER (see processRangefinder).
         if (message.payload.size >= 16) {
-            val altitudeCm = java.nio.ByteBuffer.wrap(message.payload, 12, 4)
+            val altitude = java.nio.ByteBuffer.wrap(message.payload, 12, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).float
-            val altitude = altitudeCm / 100.0f // cm -> m
             if (BuildConfig.DEBUG) Timber.d("AHRS2: altitude=%.2fm", altitude)
             if (altitude >= -100f && altitude < 10000f) { // sanity check
                 _flightState.update { current ->
