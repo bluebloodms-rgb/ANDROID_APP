@@ -63,7 +63,15 @@ jobs:
       - name: Build debug APK
         run: |
           cd android
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.sha }}
+          path: android/build.log
+          retention-days: 30
 
       - name: Get version info
         id: version
@@ -74,6 +82,7 @@ jobs:
           echo "commit=$COMMIT_SHORT" >> $GITHUB_OUTPUT
 
       - name: Upload APK as artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-${{ steps.version.outputs.commit }}
@@ -81,6 +90,7 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
