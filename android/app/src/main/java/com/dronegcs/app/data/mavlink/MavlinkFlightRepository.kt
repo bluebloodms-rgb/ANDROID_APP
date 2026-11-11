@@ -352,6 +352,7 @@ class MavlinkFlightRepository(
             1 -> processSysStatus(message)        // SYS_STATUS (ArduPilot battery voltage)
             24 -> processGps(message)             // GPS_RAW_INT
             33 -> processGlobalPosition(message)  // GLOBAL_POSITION_INT (relative_alt, lat, lon)
+            132 -> processDistanceSensor(message) // DISTANCE_SENSOR (LiDAR)
             147 -> processBattery(message)        // BATTERY_STATUS
             173 -> processRangefinder(message)    // RANGEFINDER (ArduPilot dialect)
             else -> Timber.v("Unhandled MAVLink message: ${message.msgId}")
@@ -526,6 +527,29 @@ class MavlinkFlightRepository(
                     )
                 }
                 Timber.d("SYS_STATUS: battery=%.2fV", voltageV)
+            }
+        }
+    }
+
+    private fun processDistanceSensor(message: MavlinkMessage) {
+        // DISTANCE_SENSOR (msgId 132) wire layout:
+        // time_boot_ms(4) min_distance(2) max_distance(2) current_distance(2) @8
+        // type(1) @10 id(1) @11 orientation(1) @12 covariance(1) @13
+        // horizontal_fov(4) @14 vertical_fov(4) @18 signal_quality(2) @22
+        // current_distance at offset 8 (uint16_t, centimeters)
+        if (message.payload.size >= 10) {
+            val currentDistanceCm = (message.payload[8].toInt() and 0xFF) or
+                                    ((message.payload[9].toInt() and 0xFF) shl 8)
+            // Convert cm to meters, ignore sentinel values (0 or 0xFFFF = 65535)
+            if (currentDistanceCm in 1..65534) {
+                val distanceM = currentDistanceCm / 100.0f
+                // Sanity check: reasonable range 0.1m to 100m
+                if (distanceM >= 0.1f && distanceM <= 100.0f) {
+                    _flightState.update { current ->
+                        current.updateTelemetry(lidarDistance = distanceM)
+                    }
+                    Timber.d("DISTANCE_SENSOR: current_distance=%dcm -> %.2fm", currentDistanceCm, distanceM)
+                }
             }
         }
     }

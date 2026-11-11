@@ -191,4 +191,34 @@ class FlightStateTest {
         val staleState = FlightState(lastBatteryRx = System.currentTimeMillis() - 2000)
         assertFalse(staleState.isFieldFresh(staleState.lastBatteryRx))
     }
+
+    @Test
+    fun `lidar distance update`() {
+        val state = FlightState().updateTelemetry(lidarDistance = 12.5f)
+        assertEquals(12.5f, state.lidarDistance!!, 0.001f)
+    }
+
+    @Test
+    fun `lidar distance NaN ignored`() {
+        val state = FlightState(lidarDistance = 10.0f).updateTelemetry(lidarDistance = Float.NaN)
+        assertEquals(10.0f, state.lidarDistance!!, 0.001f)
+    }
+
+    @Test
+    fun `lidar freshness timestamp updated`() {
+        val before = System.currentTimeMillis()
+        val state = FlightState().updateTelemetry(lidarDistance = 5.0f)
+        val after = System.currentTimeMillis()
+        
+        assertTrue(state.lastLidarRx >= before && state.lastLidarRx <= after)
+    }
+
+    @Test
+    fun `lidar field fresh detection`() {
+        val freshState = FlightState(lastLidarRx = System.currentTimeMillis())
+        assertTrue(freshState.isFieldFresh(freshState.lastLidarRx))
+        
+        val staleState = FlightState(lastLidarRx = System.currentTimeMillis() - 2000)
+        assertFalse(staleState.isFieldFresh(staleState.lastLidarRx))
+    }
 }

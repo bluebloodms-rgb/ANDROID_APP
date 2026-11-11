@@ -15,6 +15,7 @@ object MavlinkProtocol {
     const val MSG_ID_STATUSTEXT = 253
     const val MSG_ID_COMMAND_LONG = 76
     const val MSG_ID_COMMAND_ACK = 77
+    const val MSG_ID_DISTANCE_SENSOR = 132
     private const val INCOMPAT_FLAG_SIGNED = 0x01
     private const val FRAME_HEADER_LEN = 10 // STX..msgid(3)
     private const val FRAME_CRC_LEN = 2

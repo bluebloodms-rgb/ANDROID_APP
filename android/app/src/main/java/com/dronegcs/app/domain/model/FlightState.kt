@@ -44,6 +44,7 @@ data class FlightState(
     val gpsFixType: Int? = null, // GPS_RAW_INT fix_type: 0=NO_GPS, 1=NO_FIX, 2=2D, 3=3D, 4=DGPS, 5=RTK_FIXED, 6=RTK_FLOAT
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val lidarDistance: Float? = null, // DISTANCE_SENSOR current_distance in meters
 
     // Heartbeat tracking
     val lastHeartbeat: Long = 0,
@@ -71,7 +72,8 @@ data class FlightState(
     val lastBatteryRx: Long = 0,
     val lastAltitudeRx: Long = 0,
     val lastHeadingRx: Long = 0,
-    val lastGpsRx: Long = 0
+    val lastGpsRx: Long = 0,
+    val lastLidarRx: Long = 0
 ) {
     /**
      * Update state from a STATUSTEXT message string
@@ -133,7 +135,8 @@ data class FlightState(
         satellites: Int? = null,
         gpsFixType: Int? = null,
         latitude: Double? = null,
-        longitude: Double? = null
+        longitude: Double? = null,
+        lidarDistance: Float? = null
     ): FlightState {
         // Guard against NaN altitude values from faulty sensors
         val safeAltitude = altitude?.let { alt ->
@@ -153,6 +156,9 @@ data class FlightState(
         val safeLongitude = longitude?.let { lon ->
             if (!lon.isFinite()) null else lon
         }
+        val safeLidarDistance = lidarDistance?.let { dist ->
+            if (!dist.isFinite()) null else dist
+        }
         
         val now = System.currentTimeMillis()
         return copy(
@@ -164,9 +170,11 @@ data class FlightState(
             gpsFixType = gpsFixType ?: this.gpsFixType,
             latitude = safeLatitude ?: this.latitude,
             longitude = safeLongitude ?: this.longitude,
+            lidarDistance = safeLidarDistance ?: this.lidarDistance,
             lastBatteryRx = safeBattery?.let { now } ?: this.lastBatteryRx,
             lastAltitudeRx = safeAltitude?.let { now } ?: this.lastAltitudeRx,
-            lastGpsRx = safeLatitude?.let { now } ?: this.lastGpsRx
+            lastGpsRx = safeLatitude?.let { now } ?: this.lastGpsRx,
+            lastLidarRx = safeLidarDistance?.let { now } ?: this.lastLidarRx
         )
     }
 

@@ -130,8 +130,9 @@ fun TopBar(
             )
             TelemetryWidget(
                 iconRes = R.drawable.ic_altitude,
-                label = "ALT",
-                value = flightState.altitude?.let { "%.1f".format(it) } ?: "--",
+                label = "LiDAR",
+                value = flightState.lidarDistance?.let { "%.1f".format(it) } 
+                    ?: flightState.altitude?.let { "%.1f".format(it) } ?: "--",
                 unit = "m"
             )
             TelemetryWidget(
