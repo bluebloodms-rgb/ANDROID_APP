@@ -25,6 +25,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools-version: 34.0.0
+          ndk-version: r26b
+          emulator: false
+          cache: gradle
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -39,10 +45,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Set up local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
       - name: Build debug APK
         run: |
           cd android
-          ./gradlew :app:assembleDebug
+          ./gradlew :app:assembleDebug --no-daemon
 
       - name: Get version info
         id: version
