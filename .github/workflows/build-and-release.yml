@@ -41,7 +41,7 @@ jobs:
 
       - name: Install SDK components
         run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "platform-tools"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -63,7 +63,7 @@ jobs:
       - name: Build debug APK
         run: |
           cd android
-          ./gradlew :app:assembleDebug --no-daemon
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info
 
       - name: Get version info
         id: version
