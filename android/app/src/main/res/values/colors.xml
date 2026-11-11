@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches ui/theme/Color.kt -->
+    <color name="electric_blue">#FF00BFFF</color>
+    <color name="safety_orange">#FFFF8C00</color>
+    <color name="alert_red">#FFFF4444</color>
+    <color name="background_dark">#FF0E0E0E</color>
+    <color name="background_light">#FFF5F5F5</color>
+    <color name="surface_dark">#FF1A1A1A</color>
+
+    <!-- Launcher icon background -->
+    <color name="ic_launcher_background">#FF0E0E0E</color>
+</resources>

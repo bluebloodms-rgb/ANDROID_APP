@@ -1,0 +1,240 @@
+DroneGCS crash | session 261109-135213-cf5b | thread ExoPlayer:Playback | 2026-11-09 14:07:44.533
+device QUALCOMM MK15 Android 9
+
+java.lang.IllegalArgumentException
+	at androidx.media3.common.util.Assertions.checkArgument(Assertions.java:40)
+	at androidx.media3.exoplayer.rtsp.RtspMessageUtil.parseRequest(RtspMessageUtil.java:321)
+	at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspRequest(RtspClient.java:538)
+	at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspMessage(RtspClient.java:529)
+	at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.lambda$onRtspMessageReceived$0$androidx-media3-exoplayer-rtsp-RtspClient$MessageListener(RtspClient.java:520)
+	at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:873)
+	at android.os.Handler.dispatchMessage(Handler.java:99)
+	at android.os.Looper.loop(Looper.java:193)
+	at android.os.HandlerThread.run(HandlerThread.java:65)
+
+==== last 200 log lines ====
+2026-11-09 14:07:01.718 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:02.177 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:02.424 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:02.674 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.19m heading=106.48572
+2026-11-09 14:07:02.678 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:02.740 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Skipping signed MAVLink frame
+2026-11-09 14:07:03.232 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:03.428 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:03.684 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.24m heading=106.47167
+2026-11-09 14:07:03.688 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:03.691 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:04.235 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:04.432 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:04.690 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:04.694 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: SYS_STATUS: battery=31.00V
+2026-11-09 14:07:05.157 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:05.436 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:05.671 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:05.730 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:06.163 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:06.441 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:06.677 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:06.737 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:07.207 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:07.444 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:07.654 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.10m heading=106.48954
+2026-11-09 14:07:07.681 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:08.155 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:08.447 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:08.641 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: AHRS2: altitude=0.13m heading=106.48185
+2026-11-09 14:07:08.699 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:08.702 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:08.841 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Skipping signed MAVLink frame
+2026-11-09 14:07:09.193 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:09.450 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:09.663 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.06m heading=106.51392
+2026-11-09 14:07:09.722 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=31.00V
+2026-11-09 14:07:10.178 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:10.454 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:10.697 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:10.701 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:11.195 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:11.457 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:11.698 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: AHRS2: altitude=NaNm heading=106.47324
+2026-11-09 14:07:11.702 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:11.705 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:12.181 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:12.460 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:12.697 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=-0.02m heading=106.45659
+2026-11-09 14:07:12.702 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:12.704 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:13.183 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:13.464 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:13.688 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=-0.04m heading=106.451164
+2026-11-09 14:07:13.694 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:13.697 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:13.755 W/MavlinkProtocol[DefaultDispatcher-worker-6]: CRC mismatch x14 since last log (last msgId=331779)
+2026-11-09 14:07:14.199 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:14.468 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:14.659 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: AHRS2: altitude=NaNm heading=106.46576
+2026-11-09 14:07:14.717 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:14.720 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:15.182 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:15.472 D/MavlinkProtocol[DefaultDispatcher-worker-7]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:15.707 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:15.718 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:16.171 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:16.476 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:16.677 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=0.07m heading=106.44758
+2026-11-09 14:07:16.731 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:16.734 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:17.182 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:17.481 D/MavlinkProtocol[DefaultDispatcher-worker-1]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:17.669 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.11m heading=106.42294
+2026-11-09 14:07:17.672 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:17.731 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:18.209 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:18.485 D/MavlinkProtocol[DefaultDispatcher-worker-7]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:18.727 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:18.730 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=30.98V
+2026-11-09 14:07:19.172 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:19.490 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:19.694 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.13m heading=106.3955
+2026-11-09 14:07:19.698 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:19.755 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:20.216 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:20.494 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:20.712 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: AHRS2: altitude=0.12m heading=106.38327
+2026-11-09 14:07:20.718 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:21.211 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:21.498 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:21.710 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.16m heading=106.37288
+2026-11-09 14:07:21.714 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:21.735 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:22.183 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:22.501 D/MavlinkProtocol[DefaultDispatcher-worker-1]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:22.744 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:22.748 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:23.227 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:23.507 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:23.670 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: AHRS2: altitude=0.11m heading=106.3606
+2026-11-09 14:07:23.727 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:23.731 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:23.809 W/MavlinkProtocol[DefaultDispatcher-worker-4]: CRC mismatch x12 since last log (last msgId=0)
+2026-11-09 14:07:24.206 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:24.510 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:24.702 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: AHRS2: altitude=0.12m heading=106.38211
+2026-11-09 14:07:24.760 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:25.188 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:25.514 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:25.706 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: AHRS2: altitude=0.07m heading=106.38428
+2026-11-09 14:07:25.763 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:25.767 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:26.218 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:26.519 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:26.708 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: AHRS2: altitude=0.07m heading=106.41508
+2026-11-09 14:07:26.712 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:26.802 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:27.214 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:27.524 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:27.718 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:27.780 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Skipping signed MAVLink frame
+2026-11-09 14:07:28.194 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:28.528 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:28.704 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.05m heading=106.41877
+2026-11-09 14:07:28.715 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:28.815 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:29.222 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:29.530 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:29.718 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:29.778 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:30.235 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:30.532 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:30.691 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.08m heading=106.43583
+2026-11-09 14:07:30.774 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:30.820 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:31.070 I/MavlinkFlightRepository[DefaultDispatcher-worker-6]: RX STATUSTEXT (sev=2, not INFO -> ignored): PreArm: Motors Emergency Stopped
+2026-11-09 14:07:31.217 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:31.534 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:31.671 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.07m heading=106.42597
+2026-11-09 14:07:31.729 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:31.732 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:31.797 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Skipping signed MAVLink frame
+2026-11-09 14:07:32.226 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:32.536 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:32.672 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.02m heading=106.41766
+2026-11-09 14:07:32.734 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:32.736 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:33.235 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:33.538 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:33.733 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.05m heading=106.4102
+2026-11-09 14:07:33.737 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:33.741 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:34.206 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:34.541 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:34.730 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: AHRS2: altitude=0.01m heading=106.406425
+2026-11-09 14:07:34.732 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:34.735 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:35.224 D/MavlinkFlightRepository[DefaultDispatcher-worker-4]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:35.545 D/MavlinkProtocol[DefaultDispatcher-worker-8]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:35.740 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: AHRS2: altitude=0.05m heading=106.3917
+2026-11-09 14:07:35.746 W/MavlinkProtocol[DefaultDispatcher-worker-4]: CRC mismatch x9 since last log (last msgId=30)
+2026-11-09 14:07:36.246 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:36.550 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:36.723 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: AHRS2: altitude=0.06m heading=106.38511
+2026-11-09 14:07:36.728 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:36.820 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:37.261 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:37.555 D/MavlinkProtocol[DefaultDispatcher-worker-1]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:37.709 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=0.09m heading=106.38038
+2026-11-09 14:07:37.766 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:37.769 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:38.233 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:38.559 D/MavlinkProtocol[DefaultDispatcher-worker-7]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:38.687 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=0.05m heading=106.39494
+2026-11-09 14:07:38.744 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:38.748 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:39.252 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:39.563 D/MavlinkProtocol[DefaultDispatcher-worker-6]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:39.770 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=0.09m heading=106.37141
+2026-11-09 14:07:39.775 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.98V
+2026-11-09 14:07:40.233 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:40.567 D/MavlinkProtocol[DefaultDispatcher-worker-1]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:40.756 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: AHRS2: altitude=0.07m heading=106.39507
+2026-11-09 14:07:40.760 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:40.769 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:41.213 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:41.572 D/MavlinkProtocol[DefaultDispatcher-worker-4]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:41.731 D/MavlinkFlightRepository[DefaultDispatcher-worker-5]: AHRS2: altitude=0.12m heading=106.37513
+2026-11-09 14:07:41.788 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:41.796 D/MavlinkProtocol[DefaultDispatcher-worker-5]: Skipping signed MAVLink frame
+2026-11-09 14:07:42.226 D/MavlinkFlightRepository[DefaultDispatcher-worker-1]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:42.576 D/MavlinkProtocol[DefaultDispatcher-worker-7]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:42.724 D/MavlinkFlightRepository[DefaultDispatcher-worker-7]: AHRS2: altitude=0.14m heading=106.360176
+2026-11-09 14:07:42.780 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: GLOBAL_POSITION_INT: lat=0.0000000 lon=0.0000000
+2026-11-09 14:07:42.829 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: SYS_STATUS: battery=30.99V
+2026-11-09 14:07:43.232 D/MavlinkFlightRepository[DefaultDispatcher-worker-8]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:43.586 D/MavlinkProtocol[DefaultDispatcher-worker-1]: Encoded GCS HEARTBEAT (21 bytes)
+2026-11-09 14:07:44.209 D/MavlinkFlightRepository[DefaultDispatcher-worker-6]: HEARTBEAT: custom_mode=2 armed=false
+2026-11-09 14:07:44.517 E/CrashLogger[ExoPlayer:Playback]: FATAL UNCAUGHT in thread ExoPlayer:Playback
+    java.lang.IllegalArgumentException
+      at androidx.media3.common.util.Assertions.checkArgument(Assertions.java:40)
+      at androidx.media3.exoplayer.rtsp.RtspMessageUtil.parseRequest(RtspMessageUtil.java:321)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspRequest(RtspClient.java:538)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspMessage(RtspClient.java:529)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.lambda$onRtspMessageReceived$0$androidx-media3-exoplayer-rtsp-RtspClient$MessageListener(RtspClient.java:520)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+      at android.os.Handler.handleCallback(Handler.java:873)
+      at android.os.Handler.dispatchMessage(Handler.java:99)
+      at android.os.Looper.loop(Looper.java:193)
+      at android.os.HandlerThread.run(HandlerThread.java:65)
+    
+    java.lang.IllegalArgumentException
+      at androidx.media3.common.util.Assertions.checkArgument(Assertions.java:40)
+      at androidx.media3.exoplayer.rtsp.RtspMessageUtil.parseRequest(RtspMessageUtil.java:321)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspRequest(RtspClient.java:538)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.handleRtspMessage(RtspClient.java:529)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener.lambda$onRtspMessageReceived$0$androidx-media3-exoplayer-rtsp-RtspClient$MessageListener(RtspClient.java:520)
+      at androidx.media3.exoplayer.rtsp.RtspClient$MessageListener$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+      at android.os.Handler.handleCallback(Handler.java:873)
+      at android.os.Handler.dispatchMessage(Handler.java:99)
+      at android.os.Looper.loop(Looper.java:193)
+      at android.os.HandlerThread.run(HandlerThread.java:65)
+    
