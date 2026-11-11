@@ -215,19 +215,19 @@ object MavlinkProtocol {
     /**
      * Parse MAVLink message from raw bytes (simplified parser for STATUSTEXT and telemetry)
      * This is a minimal implementation - for full MAVLink parsing use mavlink-kotlin library
-     * Returns a Pair of (MavlinkMessage?, Boolean) where Boolean indicates if CRC mismatch occurred
+     * Returns a ParseResult: Ok(message), CrcError(msgId, rawBytes), or Incomplete
      */
-    fun parseMavlinkMessage(buffer: ByteArray): Pair<MavlinkMessage?, Boolean> {
+    fun parseMavlinkMessage(buffer: ByteArray): ParseResult {
         // Never let malformed serial data crash the app
         return try {
             parseMavlinkMessageInternal(buffer)
         } catch (e: Exception) {
             Timber.w(e, "Malformed MAVLink frame discarded")
-            Pair(null, false)
+            ParseResult.Malformed(e.message ?: "Unknown error")
         }
     }
 
-    private fun parseMavlinkMessageInternal(buffer: ByteArray): Pair<MavlinkMessage?, Boolean> {
+    private fun parseMavlinkMessageInternal(buffer: ByteArray): ParseResult {
         // Find STX (0xFD, MAVLink v2)
         var startIdx = -1
         for (i in buffer.indices) {
@@ -236,13 +236,13 @@ object MavlinkProtocol {
                 break
             }
         }
-        if (startIdx == -1) return null
+        if (startIdx == -1) return ParseResult.Incomplete
 
         val remaining = buffer.size - startIdx
 
         // Standard MAVLink v2 frame:
         // STX(1) len(1) incompat(1) compat(1) seq(1) sysid(1) compid(1) msgid(3) payload(len) crc(2)
-        if (remaining < FRAME_HEADER_LEN + FRAME_CRC_LEN) return null
+        if (remaining < FRAME_HEADER_LEN + FRAME_CRC_LEN) return ParseResult.Incomplete
 
         val payloadLen = buffer[startIdx + 1].toInt() and 0xFF
         val incompatFlags = buffer[startIdx + 2].toInt() and 0xFF
@@ -250,11 +250,11 @@ object MavlinkProtocol {
         // Signed payloads are not supported -> skip this frame
         if (incompatFlags and INCOMPAT_FLAG_SIGNED != 0) {
             Timber.d("Skipping signed MAVLink frame")
-            return null
+            return ParseResult.Incomplete
         }
 
         val totalLen = FRAME_HEADER_LEN + payloadLen + FRAME_CRC_LEN
-        if (remaining < totalLen) return null // partial frame - caller resyncs on next STX
+        if (remaining < totalLen) return ParseResult.Incomplete // partial frame - caller resyncs on next STX
 
         val seq = buffer[startIdx + 4].toInt() and 0xFF
         val sysId = buffer[startIdx + 5].toInt() and 0xFF
@@ -274,11 +274,13 @@ object MavlinkProtocol {
         val crcCalculated = calculateCrc(buffer, startIdx + 1, payloadStart + payloadLen, msgId)
 
         if (crcReceived != crcCalculated) {
-            Timber.w("CRC mismatch for msgId $msgId")
-            return Pair(null, true)
+            Timber.w("CRC mismatch for msgId $msgId (received=$crcReceived calc=$crcCalculated)")
+            // Return raw bytes for debugging
+            val rawBytes = buffer.copyOfRange(startIdx, startIdx + totalLen)
+            return ParseResult.CrcError(msgId, rawBytes)
         }
 
-        return Pair(MavlinkMessage(seq, sysId, compId, msgId, payload), false)
+        return ParseResult.Ok(MavlinkMessage(seq, sysId, compId, msgId, payload))
     }
 
     // --- Private helpers ---
@@ -325,6 +327,16 @@ object MavlinkProtocol {
     }
 
     private fun getCrcExtra(msgId: Int): Int = MavlinkCrcExtra.forMessageId(msgId)
+}
+
+/**
+ * Result of MAVLink message parsing
+ */
+sealed interface ParseResult {
+    data class Ok(val message: MavlinkMessage) : ParseResult
+    data class CrcError(val msgId: Int, val rawBytes: ByteArray) : ParseResult
+    object Incomplete : ParseResult
+    data class Malformed(val reason: String) : ParseResult
 }
 
 /**

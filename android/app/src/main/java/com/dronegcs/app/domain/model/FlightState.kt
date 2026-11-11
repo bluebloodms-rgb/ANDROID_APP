@@ -41,7 +41,9 @@ data class FlightState(
     val hdop: Float? = null,
     val mode: String? = null,
     val satellites: Int? = null,
-    val gpsFixType: Int? = null, // GPS_RAW_INT fix_type: 0=none, 1=2D, 2=3D, 3=DGPS, 4=RTK
+    val gpsFixType: Int? = null, // GPS_RAW_INT fix_type: 0=NO_GPS, 1=NO_FIX, 2=2D, 3=3D, 4=DGPS, 5=RTK_FIXED, 6=RTK_FLOAT
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
 
     // Heartbeat tracking
     val lastHeartbeat: Long = 0,
@@ -56,12 +58,20 @@ data class FlightState(
     val responderStatus: ResponderStatus = ResponderStatus.UNKNOWN,
     val crcMismatchCount: Int = 0,
     val linkQuality: Int = 100, // 0-100% link quality estimate
+    val lastSeq: Int? = null, // For sequence gap detection
 
     // Command tracking
     val lastCommand: Int = 0,
     val lastCommandResult: Int = 0,
     val emergencyStop: Boolean = false,
-    val lowBatteryWarning: Boolean = false
+    val emergencyStopExpiresAt: Long = 0, // TTL for emergency stop latch
+    val lowBatteryWarning: Boolean = false,
+    val lowBatteryCritical: Boolean = false,
+    // Freshness timestamps for per-field staleness detection
+    val lastBatteryRx: Long = 0,
+    val lastAltitudeRx: Long = 0,
+    val lastHeadingRx: Long = 0,
+    val lastGpsRx: Long = 0
 ) {
     /**
      * Update state from a STATUSTEXT message string
@@ -121,20 +131,42 @@ data class FlightState(
         hdop: Float? = null,
         mode: String? = null,
         satellites: Int? = null,
-        gpsFixType: Int? = null
+        gpsFixType: Int? = null,
+        latitude: Double? = null,
+        longitude: Double? = null
     ): FlightState {
         // Guard against NaN altitude values from faulty sensors
         val safeAltitude = altitude?.let { alt ->
             if (alt.isNaN()) null else alt
         }
         
+        // Central isFinite validation for all float fields
+        val safeBattery = battery?.let { bat ->
+            if (!bat.isFinite()) null else bat
+        }
+        val safeHdop = hdop?.let { h ->
+            if (!h.isFinite()) null else h
+        }
+        val safeLatitude = latitude?.let { lat ->
+            if (!lat.isFinite()) null else lat
+        }
+        val safeLongitude = longitude?.let { lon ->
+            if (!lon.isFinite()) null else lon
+        }
+        
+        val now = System.currentTimeMillis()
         return copy(
-            battery = battery ?: this.battery,
+            battery = safeBattery ?: this.battery,
             altitude = safeAltitude ?: this.altitude,
-            hdop = hdop ?: this.hdop,
+            hdop = safeHdop ?: this.hdop,
             mode = mode ?: this.mode,
             satellites = satellites ?: this.satellites,
-            gpsFixType = gpsFixType ?: this.gpsFixType
+            gpsFixType = gpsFixType ?: this.gpsFixType,
+            latitude = safeLatitude ?: this.latitude,
+            longitude = safeLongitude ?: this.longitude,
+            lastBatteryRx = safeBattery?.let { now } ?: this.lastBatteryRx,
+            lastAltitudeRx = safeAltitude?.let { now } ?: this.lastAltitudeRx,
+            lastGpsRx = safeLatitude?.let { now } ?: this.lastGpsRx
         )
     }
 
@@ -157,8 +189,11 @@ data class FlightState(
         )
     }
 
-    fun updateEmergencyStop(active: Boolean): FlightState {
-        return copy(emergencyStop = active)
+    fun updateEmergencyStop(active: Boolean, expiresAt: Long = 0): FlightState {
+        return copy(
+            emergencyStop = active,
+            emergencyStopExpiresAt = if (active) expiresAt else 0
+        )
     }
 
     // Convenience getters for UI
@@ -212,23 +247,28 @@ data class FlightState(
             else -> "UNKNOWN($lastCommandResult)"
         }
 
-    /** GPS fix type: 0=none, 1=2D, 2=3D, 3=DGPS, 4=RTK, 5=RTK_FLOAT */
+    /** GPS fix type: 0=NO_GPS, 1=NO_FIX, 2=2D, 3=3D, 4=DGPS, 5=RTK_FIXED, 6=RTK_FLOAT */
     val gpsFixTypeName: String?
         get() = gpsFixType?.let { ft ->
             when (ft) {
                 0 -> "NO GPS"
-                1 -> "2D FIX"
-                2 -> "3D FIX"
-                3 -> "DGPS"
-                4 -> "RTK FIXED"
-                5 -> "RTK FLOAT"
+                1 -> "NO FIX"
+                2 -> "2D FIX"
+                3 -> "3D FIX"
+                4 -> "DGPS"
+                5 -> "RTK FIXED"
+                6 -> "RTK FLOAT"
                 else -> "UNKNOWN($ft)"
             }
         }
 
-    /** True when GPS has a usable 3D fix (fix_type >= 2) */
+    /** True when GPS has a usable 3D fix (fix_type >= 3) */
     val hasGpsFix: Boolean
-        get() = gpsFixType != null && gpsFixType!! >= 2
+        get() = gpsFixType != null && gpsFixType!! >= 3
+
+    /** True when GPS has valid position (fix >= 3 AND lat/lon != 0) */
+    val hasValidPosition: Boolean
+        get() = hasGpsFix && (latitude != 0.0 && longitude != 0.0)
 
     /** Link quality as display string */
     val linkQualityName: String
@@ -243,9 +283,22 @@ data class FlightState(
     /** Low battery warning threshold */
     companion object {
         const val LOW_BATTERY_THRESHOLD_V = 30.0f
+        const val LOW_BATTERY_CRITICAL_V = 29.0f
+        const val LOW_BATTERY_HYSTERESIS_V = 0.5f // Clear above threshold + hysteresis
     }
 
     /** True when battery voltage is below threshold (computed from battery value) */
     val isLowBattery: Boolean
         get() = battery != null && battery!! < LOW_BATTERY_THRESHOLD_V
+
+    /** True when battery voltage is critically low - immediate action required */
+    val isCriticalBattery: Boolean
+        get() = battery != null && battery!! < LOW_BATTERY_CRITICAL_V
+
+    /** True when battery is OK (above threshold + hysteresis) */
+    val isBatteryOk: Boolean
+        get() = battery != null && battery!! >= (LOW_BATTERY_THRESHOLD_V + LOW_BATTERY_HYSTERESIS_V)
+
+    /** True when field is fresh (updated within last second) */
+    fun isFieldFresh(lastRx: Long): Boolean = System.currentTimeMillis() - lastRx < 1000
 }

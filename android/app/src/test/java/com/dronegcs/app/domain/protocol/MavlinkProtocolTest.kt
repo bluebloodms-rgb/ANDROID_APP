@@ -35,11 +35,10 @@ class MavlinkProtocolTest {
         val text = "Op:1,St:1,Md:2,Cls:0"
         val frame = MavlinkProtocol.encodeStatustext(text)
 
-        val (message, crcMismatch) = MavlinkProtocol.parseMavlinkMessage(frame)
+        val result = MavlinkProtocol.parseMavlinkMessage(frame)
 
-        assertFalse(crcMismatch)
-        assertNotNull(message)
-        message!!
+        assertTrue(result is MavlinkProtocol.ParseResult.Ok)
+        val message = (result as MavlinkProtocol.ParseResult.Ok).message
         assertEquals(253, message.msgId)
         assertEquals(6, message.payload[0].toInt()) // severity INFO
         val decoded = MavlinkProtocol.decodeStatustextPayload(message.payload)
@@ -51,22 +50,22 @@ class MavlinkProtocolTest {
         val frame = MavlinkProtocol.encodeStatustext("X")
         val noisy = byteArrayOf(0x00, 0x12, 0x34) + frame
 
-        val (message, crcMismatch) = MavlinkProtocol.parseMavlinkMessage(noisy)
+        val result = MavlinkProtocol.parseMavlinkMessage(noisy)
 
-        assertFalse(crcMismatch)
-        assertNotNull(message)
-        assertEquals(253, message!!.msgId)
+        assertTrue(result is MavlinkProtocol.ParseResult.Ok)
+        val message = (result as MavlinkProtocol.ParseResult.Ok).message
+        assertEquals(253, message.msgId)
     }
 
     @Test
     fun `parseMavlinkMessage tolerates trailing garbage bytes`() {
         val frame = MavlinkProtocol.encodeStatustext("X") + byteArrayOf(0x55, 0x66)
 
-        val (message, crcMismatch) = MavlinkProtocol.parseMavlinkMessage(frame)
+        val result = MavlinkProtocol.parseMavlinkMessage(frame)
 
-        assertFalse(crcMismatch)
-        assertNotNull(message)
-        assertEquals(253, message!!.msgId)
+        assertTrue(result is MavlinkProtocol.ParseResult.Ok)
+        val message = (result as MavlinkProtocol.ParseResult.Ok).message
+        assertEquals(253, message.msgId)
     }
 
     @Test
@@ -74,10 +73,12 @@ class MavlinkProtocolTest {
         val frame = MavlinkProtocol.encodeStatustext("CRC")
         frame[frame.size - 2] = (frame[frame.size - 2] + 1).toByte()
 
-        val (message, crcMismatch) = MavlinkProtocol.parseMavlinkMessage(frame)
+        val result = MavlinkProtocol.parseMavlinkMessage(frame)
 
-        assertTrue(crcMismatch)
-        assertNull(message)
+        assertTrue(result is MavlinkProtocol.ParseResult.CrcError)
+        val crcError = result as MavlinkProtocol.ParseResult.CrcError
+        assertEquals(253, crcError.msgId)
+        assertNotNull(crcError.rawBytes)
     }
 
     @Test
@@ -92,13 +93,11 @@ class MavlinkProtocolTest {
     }
 
     @Test
-    fun `parseMavlinkMessage returns null for empty or short buffer`() {
-        val (msg1, crc1) = MavlinkProtocol.parseMavlinkMessage(ByteArray(0))
-        val (msg2, crc2) = MavlinkProtocol.parseMavlinkMessage(byteArrayOf(0xFD.toByte(), 0x01))
-        assertNull(msg1)
-        assertNull(msg2)
-        assertFalse(crc1)
-        assertFalse(crc2)
+    fun `parseMavlinkMessage returns Incomplete for empty or short buffer`() {
+        val result1 = MavlinkProtocol.parseMavlinkMessage(ByteArray(0))
+        val result2 = MavlinkProtocol.parseMavlinkMessage(byteArrayOf(0xFD.toByte(), 0x01))
+        assertTrue(result1 is MavlinkProtocol.ParseResult.Incomplete)
+        assertTrue(result2 is MavlinkProtocol.ParseResult.Incomplete)
     }
 
     @Test
@@ -107,7 +106,8 @@ class MavlinkProtocolTest {
 
         // every possible truncation must be safe
         for (cut in 1 until frame.size) {
-            MavlinkProtocol.parseMavlinkMessage(frame.copyOfRange(0, cut))
+            val result = MavlinkProtocol.parseMavlinkMessage(frame.copyOfRange(0, cut))
+            assertTrue(result is MavlinkProtocol.ParseResult.Incomplete || result is MavlinkProtocol.ParseResult.Malformed)
         }
     }
 
@@ -163,5 +163,18 @@ class MavlinkProtocolTest {
         }
         // increments wrap modulo 256: sequence #257 equals sequence #1
         assertEquals(sequences[0], sequences[256])
+    }
+
+    @Test
+    fun `CrcError includes raw bytes for debugging`() {
+        val frame = MavlinkProtocol.encodeStatustext("CRC")
+        frame[frame.size - 2] = (frame[frame.size - 2] + 1).toByte()
+
+        val result = MavlinkProtocol.parseMavlinkMessage(frame)
+
+        assertTrue(result is MavlinkProtocol.ParseResult.CrcError)
+        val crcError = result as MavlinkProtocol.ParseResult.CrcError
+        assertEquals(253, crcError.msgId)
+        assertTrue(crcError.rawBytes.size > 0)
     }
 }

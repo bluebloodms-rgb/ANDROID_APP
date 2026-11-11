@@ -127,8 +127,15 @@ class MavlinkFlightRepository(
                             responderStatus = ResponderStatus.UNKNOWN,
                             crcMismatchCount = 0,
                             linkQuality = 100,
+                            lastSeq = null,
                             emergencyStop = false,
-                            lowBatteryWarning = false
+                            emergencyStopExpiresAt = 0,
+                            lowBatteryWarning = false,
+                            lowBatteryCritical = false,
+                            lastBatteryRx = 0,
+                            lastAltitudeRx = 0,
+                            lastHeadingRx = 0,
+                            lastGpsRx = 0
                         )
                     }
                 } else {
@@ -239,21 +246,31 @@ class MavlinkFlightRepository(
                 val totalLen = 10 + payloadLen + 2
                 if (remaining < totalLen) break // partial frame - wait for the rest
 
-                val (message, crcMismatch) = MavlinkProtocol.parseMavlinkMessage(buf.copyOfRange(offset, buf.size))
-                if (crcMismatch) {
-                    _flightState.update { current ->
-                        current.copy(
-                            crcMismatchCount = current.crcMismatchCount + 1,
-                            linkQuality = (current.linkQuality - 1).coerceIn(0, 100)
-                        )
+                val result = MavlinkProtocol.parseMavlinkMessage(buf.copyOfRange(offset, buf.size))
+                when (result) {
+                    is MavlinkProtocol.ParseResult.Ok -> {
+                        processMavlinkMessage(result.message)
+                        offset += totalLen
                     }
-                }
-                if (message != null) {
-                    processMavlinkMessage(message)
-                    offset += totalLen
-                } else {
-                    // false STX inside payload data - skip one byte and resync
-                    offset++
+                    is MavlinkProtocol.ParseResult.CrcError -> {
+                        _flightState.update { current ->
+                            current.copy(
+                                crcMismatchCount = current.crcMismatchCount + 1
+                            )
+                        }
+                        // Log raw bytes for debugging
+                        Timber.w("CRC mismatch msgId=${result.msgId}, rawBytes=${result.rawBytes.joinToString(" ") { "%02X".format(it) }}")
+                        // Resync by ONE byte (not skip whole frame) to catch valid frames behind it
+                        offset++
+                    }
+                    is MavlinkProtocol.ParseResult.Incomplete -> {
+                        // Wait for more data
+                        break
+                    }
+                    is MavlinkProtocol.ParseResult.Malformed -> {
+                        Timber.w("Malformed frame: ${result.reason}")
+                        offset++
+                    }
                 }
             }
 
@@ -273,13 +290,21 @@ class MavlinkFlightRepository(
     private fun processMavlinkMessage(message: MavlinkMessage) {
         val now = System.currentTimeMillis()
 
-        // Slowly recover link quality on successful messages
+        // Link quality: track sequence gaps for sliding window loss ratio
         _flightState.update { current ->
-            if (current.linkQuality < 100) {
-                current.copy(linkQuality = current.linkQuality + 1)
-            } else {
-                current
+            val newQuality = when {
+                current.lastSeq != null && message.seq != ((current.lastSeq!! + 1) % 256) -> {
+                    // Sequence gap detected
+                    val gap = (message.seq - current.lastSeq!! - 1 + 256) % 256
+                    (current.linkQuality - gap * 5).coerceIn(0, 100)
+                }
+                current.linkQuality < 100 -> current.linkQuality + 1
+                else -> current.linkQuality
             }
+            current.copy(
+                linkQuality = newQuality,
+                lastSeq = message.seq
+            )
         }
 
         // Lock onto the vehicle by MAV_TYPE, not by hardcoded sysId/compId:
@@ -405,7 +430,15 @@ class MavlinkFlightRepository(
         _flightState.update { current ->
             // Check for PreArm emergency stop message
             val emergencyStop = text.contains("PreArm: Motors Emergency Stopped", ignoreCase = true)
-            current.updateFromMessage(text).updateEmergencyStop(emergencyStop)
+            val updated = current.updateFromMessage(text)
+            if (emergencyStop) {
+                // Latch with TTL: stays active for 10s after last sighting
+                updated.updateEmergencyStop(true, System.currentTimeMillis() + 10_000)
+            } else if (current.emergencyStop && System.currentTimeMillis() > current.emergencyStopExpiresAt) {
+                // TTL expired - clear the flag
+                updated.updateEmergencyStop(false, 0)
+            }
+            updated
         }
     }
 
@@ -427,7 +460,13 @@ class MavlinkFlightRepository(
         }
         val mc = customMode
         _flightState.update { current ->
-            current.updateHeartbeat(armed = armed, customMode = mc)
+            val newState = current.updateHeartbeat(armed = armed, customMode = mc)
+            // Log mode changes with source detection
+            if (mc != null && mc != current.fcMode) {
+                val source = if (message.sysId == 1) "FC" else "OTHER(sys=${message.sysId})"
+                Timber.i("MODE CHANGE: ${current.fcModeName} -> ${mc} (source: $source, armed=$armed)")
+            }
+            newState
         }
         Timber.d("HEARTBEAT: custom_mode=$mc armed=$armed")
     }
@@ -436,14 +475,26 @@ class MavlinkFlightRepository(
         // BATTERY_STATUS wire layout:
         // id(1) battery_function(1) type(1) temperature(2) voltages[10](20) current_battery(2) ...
         // voltages[0] at offset 5 (uint16_t mV)
+        // Sentinel: 0xFFFF = unused/not present
         if (message.payload.size >= 7) {
             val voltageMv = (message.payload[5].toInt() and 0xFF) or
                             ((message.payload[6].toInt() and 0xFF) shl 8)
-            if (voltageMv in 1..0xFFFF && voltageMv != 0xFFFF) {
+            // Ignore sentinel values (0xFFFF, 0) and out-of-range
+            if (voltageMv in 1..0xFFFE) {
                 val voltageV = voltageMv / 1000.0f
                 _flightState.update { current ->
-                    current.updateTelemetry(battery = voltageV)
-                        .copy(lowBatteryWarning = voltageV < LOW_BATTERY_THRESHOLD_V)
+                    val updated = current.updateTelemetry(battery = voltageV)
+                    // Hysteresis: warn below 30.0V, clear above 30.5V, critical below 29.0V
+                    val warning = when {
+                        current.lowBatteryWarning && updated.isBatteryOk -> false // was warning, now OK with hysteresis
+                        updated.isLowBattery -> true // below 30.0V
+                        else -> current.lowBatteryWarning
+                    }
+                    val critical = updated.isCriticalBattery // below 29.0V
+                    updated.copy(
+                        lowBatteryWarning = warning,
+                        lowBatteryCritical = critical
+                    )
                 }
                 Timber.d("BATTERY_STATUS: battery=%.2fV", voltageV)
             }
@@ -453,14 +504,26 @@ class MavlinkFlightRepository(
     private fun processSysStatus(message: MavlinkMessage) {
         // SYS_STATUS wire layout (ArduPilot):
         // sensors_present(4) sensors_enabled(4) sensors_health(4) load(2) voltage_battery(2)@14
+        // Sentinel: 65535 (0xFFFF) = unknown/no battery monitor
         if (message.payload.size >= 16) {
             val voltageMv = (message.payload[14].toInt() and 0xFF) or
                             ((message.payload[15].toInt() and 0xFF) shl 8)
-            if (voltageMv > 0) {
+            // Ignore sentinel (0xFFFF) and zero
+            if (voltageMv in 1..0xFFFE) {
                 val voltageV = voltageMv / 1000.0f
                 _flightState.update { current ->
-                    current.updateTelemetry(battery = voltageV)
-                        .copy(lowBatteryWarning = voltageV < LOW_BATTERY_THRESHOLD_V)
+                    val updated = current.updateTelemetry(battery = voltageV)
+                    // Hysteresis: warn below 30.0V, clear above 30.5V, critical below 29.0V
+                    val warning = when {
+                        current.lowBatteryWarning && updated.isBatteryOk -> false
+                        updated.isLowBattery -> true
+                        else -> current.lowBatteryWarning
+                    }
+                    val critical = updated.isCriticalBattery
+                    updated.copy(
+                        lowBatteryWarning = warning,
+                        lowBatteryCritical = critical
+                    )
                 }
                 Timber.d("SYS_STATUS: battery=%.2fV", voltageV)
             }
@@ -484,18 +547,22 @@ class MavlinkFlightRepository(
     }
 
     private fun processGps(message: MavlinkMessage) {
-        // GPS_RAW_INT wire layout (ArduPilot):
-        // time_usec(8) fix_type(1) lat(4) lon(4) alt(4) eph(2)@20 epv(2)@22 vel(2)@24 cog(2)@26 ... sats(1)@29
-        // Note: fix_type at offset 8 is skipped in our offset calculation because fields are sorted by size
-        // Verified against live frames: eph@20, epv@22, vel@24, cog@26, satellites@29
-        if (message.payload.size >= 30) {
-            val fixType = message.payload[8].toInt() and 0xFF
-            val eph = (message.payload[20].toInt() and 0xFF) or
-                      ((message.payload[21].toInt() and 0xFF) shl 8)
+        // GPS_RAW_INT wire layout (ArduPilot) - MAVLink v2 fields ordered by size:
+        // time_usec(8) lat(4) lon(4) alt(4) eph(2) epv(2) vel(2) cog(2) fix_type(1) satellites(1)
+        // fix_type at offset 28, satellites at 29
+        // Note: MAVLink v2 truncates trailing zero bytes, so payload may be shorter
+        if (message.payload.size >= 29) {
+            // Zero-pad payload for v2 truncation
+            val padded = message.payload.copyOf(30)
+            
+            val fixType = padded[28].toInt() and 0xFF
+            val eph = (padded[20].toInt() and 0xFF) or
+                      ((padded[21].toInt() and 0xFF) shl 8)
             val hdop = eph / 100.0f
 
-            val satellites = message.payload[29].toInt() and 0xFF
+            val satellites = padded[29].toInt() and 0xFF
 
+            // MAVLink GPS fix types: 0=NO_GPS, 1=NO_FIX, 2=2D, 3=3D, 4=DGPS, 5=RTK_FIXED, 6=RTK_FLOAT
             Timber.d("GPS_RAW_INT: fix_type=%d eph=%d -> hdop=%.2f sats=%d", fixType, eph, hdop, satellites)
 
             _flightState.update { current ->
@@ -512,12 +579,13 @@ class MavlinkFlightRepository(
         // GLOBAL_POSITION_INT wire layout:
         // time_boot_ms(4) lat(4) lon(4) alt(4) relative_alt(4) vx(2) vy(2) vz(2) hdg(2)
         // relative_alt at offset 16 (int32_t, mm)
+        // lat at offset 4, lon at offset 8 (int32_t, degrees * 1e7)
         if (message.payload.size >= 20) {
             val relativeAltMm = java.nio.ByteBuffer.wrap(message.payload, 16, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
             val altitude = relativeAltMm / 1000.0f // convert mm to meters
 
-            // Also extract lat/lon for potential future use
+            // Also extract lat/lon
             val lat = java.nio.ByteBuffer.wrap(message.payload, 4, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int / 1e7
             val lon = java.nio.ByteBuffer.wrap(message.payload, 8, 4)
@@ -527,7 +595,11 @@ class MavlinkFlightRepository(
 
             if (altitude >= -100f && altitude < 10000f && !altitude.isNaN()) { // sanity check + NaN guard
                 _flightState.update { current ->
-                    current.updateTelemetry(altitude = altitude)
+                    current.updateTelemetry(
+                        altitude = altitude,
+                        latitude = lat,
+                        longitude = lon
+                    )
                 }
             }
         }

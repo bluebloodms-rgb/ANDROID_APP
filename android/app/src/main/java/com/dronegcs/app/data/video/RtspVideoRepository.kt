@@ -1,6 +1,8 @@
 package com.dronegcs.app.data.video
 
 import android.content.Context
+import android.os.Handler
+import android.os.HandlerThread
 import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -22,24 +24,31 @@ import timber.log.Timber
 /**
  * Repository for RTSP/UDP video streaming using ExoPlayer (Media3).
  *
- * IMPORTANT: ExoPlayer and PlayerView must only be accessed on the MAIN
- * thread (Media3 asserts this), so all player lifecycle work runs on
- * [mainScope] — not on a background dispatcher.
+ * IMPORTANT: ExoPlayer runs on a dedicated playback HandlerThread to isolate
+ * video crashes from the main UI and telemetry. On internal crashes (e.g.,
+ * RtspMessageUtil.parseRequest), the player is released and rebuilt automatically.
  */
 class RtspVideoRepository(
     private val context: Context
 ) {
 
-    // Media3 requires main-thread access; ExoPlayer internally offloads work.
+    // Dedicated playback thread - isolates ExoPlayer internal exceptions
+    private val playbackThread = HandlerThread("ExoPlayer-RTSP").apply { start() }
+    private val playbackHandler = Handler(playbackThread.looper)
+    
+    // Main thread scope for UI state updates
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var player: ExoPlayer? = null
     private var playerView: PlayerView? = null
     private var watchdogJob: Job? = null
 
-    // URL requested via play() before the player/view was ready (e.g. when the
-    // source is restored on app launch before the UI binds the PlayerView).
+    // URL requested via play() before the player/view was ready
     private var pendingUrl: String? = null
+    
+    // Crash recovery state
+    private var retryCount = 0
+    private const val MAX_RETRIES = 1
 
     // State
     private val _isPlaying = MutableStateFlow(false)
@@ -76,35 +85,69 @@ class RtspVideoRepository(
                 /* bufferForPlaybackAfterRebufferMs = */ 500
             )
             .build()
+        
+        // Run ExoPlayer on dedicated thread to isolate crashes from UI/telemetry
         val exoPlayer = ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
+            .setPlaybackLooper(playbackThread.looper)
             .build()
-        // NOTE: media3 1.x has no ExoPlayer.setLiveConfiguration(...) top-level
-        // Live-window pinning for RTSP is handled via MediaItem.LiveConfiguration below
-        // and the low-buffer LoadControl above keeps us near the live edge.
+        
+        // Uncaught exception handler on playback thread - catches RtspMessageUtil.parseRequest crashes
+        playbackThread.uncaughtExceptionHandler = { thread, throwable ->
+            Timber.e(throwable, "ExoPlayer playback thread crashed: ${throwable.message}")
+            // Schedule recovery on main thread
+            mainScope.launch {
+                handlePlaybackCrash()
+            }
+        }
 
-        // Install an uncaught exception handler for ExoPlayer's internal threads
-        // to prevent crashes from malformed RTSP messages (e.g., RtspMessageUtil.parseRequest)
-        val originalHandler = Thread.getDefaultUncaughtExceptionHandler()
         exoPlayer.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
-                _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
-                _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
+                mainScope.launch {
+                    _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
+                    _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
+                }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                Timber.e(error, "ExoPlayer error")
-                _error.value = error.message
-                _isPlaying.value = false
+                Timber.e(error, "ExoPlayer error: ${error.errorCode}")
+                mainScope.launch {
+                    _error.value = error.message
+                    _isPlaying.value = false
+                }
             }
 
-            // Catch ExoPlayer internal exceptions (e.g., RTSP parse failures on background threads)
-            // that would otherwise crash the app. Media3 doesn't surface all errors via onPlayerError.
             override fun onCues(cues: androidx.media3.common.Cues) { /* ignore */ }
         })
 
         player = exoPlayer
-        Timber.d("ExoPlayer initialized for RTSP")
+        Timber.d("ExoPlayer initialized for RTSP on dedicated thread")
+    }
+
+    /** Handle ExoPlayer crash: release, rebuild, and retry once */
+    private fun handlePlaybackCrash() {
+        if (retryCount >= MAX_RETRIES) {
+            Timber.e("Max RTSP retries reached, giving up")
+            _error.value = "Video stream failed after $MAX_RETRIES retries"
+            _isPlaying.value = false
+            _buffering.value = false
+            return
+        }
+        
+        retryCount++
+        Timber.w("RTSP crash recovery attempt $retryCount/$MAX_RETRIES")
+        
+        // Release crashed player
+        releasePlayer()
+        
+        // Rebuild and retry the pending URL
+        pendingUrl?.let { url ->
+            mainScope.launch {
+                delay(1000) // Brief pause before retry
+                ensurePlayer()
+                startPlayback(url)
+            }
+        }
     }
 
     /** Catch-up watchdog: if decode drift pushes us behind the live edge,
@@ -115,17 +158,20 @@ class RtspVideoRepository(
             while (isActive) {
                 delay(2000)
                 val p = player ?: break
-                if (p.playbackState != ExoPlayer.STATE_READY || !p.playWhenReady) continue
-                try {
-                    val offset = p.currentLiveOffset
-                    if (offset > 600) {
-                        p.setPlaybackSpeed(1.1f)
-                        Timber.d("Live catch-up: offset=${offset}ms -> speed 1.1x")
-                    } else if (offset in 0..200) {
-                        p.setPlaybackSpeed(1.0f)
+                // Post to playback thread to safely access player state
+                playbackHandler.post {
+                    if (p.playbackState != ExoPlayer.STATE_READY || !p.playWhenReady) return@post
+                    try {
+                        val offset = p.currentLiveOffset
+                        if (offset > 600) {
+                            p.setPlaybackSpeed(1.1f)
+                            Timber.d("Live catch-up: offset=${offset}ms -> speed 1.1x")
+                        } else if (offset in 0..200) {
+                            p.setPlaybackSpeed(1.0f)
+                        }
+                    } catch (_: Exception) {
+                        // currentLiveOffset is unset for non-live windows
                     }
-                } catch (_: Exception) {
-                    // currentLiveOffset is unset for non-live windows
                 }
             }
         }
@@ -143,9 +189,13 @@ class RtspVideoRepository(
                     .build()
             )
             .build()
+        
+        // Use TCP transport for more stable interleaved framing (avoids UDP packet loss desync)
         val mediaSource = RtspMediaSource.Factory()
             .setTimeoutMs(5000)
+            .setForceUseRtpTcp(true)
             .createMediaSource(mediaItem)
+        
         exoPlayer.setMediaSource(mediaSource)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
@@ -153,7 +203,7 @@ class RtspVideoRepository(
         _buffering.value = true
         _error.value = null
         startWatchdog()
-        Timber.d("Starting RTSP stream: $rtspUrl")
+        Timber.d("Starting RTSP stream: $rtspUrl (TCP forced)")
     }
 
     fun play(rtspUrl: String) {
@@ -166,6 +216,7 @@ class RtspVideoRepository(
         }
         
         pendingUrl = rtspUrl
+        retryCount = 0 // Reset retry counter on new stream
         mainScope.launch {
             ensurePlayer()
             startPlayback(rtspUrl)
@@ -174,26 +225,26 @@ class RtspVideoRepository(
     }
 
     fun pause() {
-        mainScope.launch { player?.playWhenReady = false }
+        playbackHandler.post { player?.playWhenReady = false }
         _isPlaying.value = false
     }
 
     fun stop() {
         pendingUrl = null
+        retryCount = 0
         watchdogJob?.cancel()
-        mainScope.launch {
-            player?.stop()
-        }
+        releasePlayer()
         _isPlaying.value = false
         _buffering.value = false
     }
 
     fun release() {
         pendingUrl = null
+        retryCount = 0
         watchdogJob?.cancel()
+        releasePlayer()
+        playbackThread.quitSafely()
         mainScope.launch {
-            player?.release()
-            player = null
             playerView?.player = null
             playerView = null
         }
@@ -201,11 +252,22 @@ class RtspVideoRepository(
         _buffering.value = false
     }
 
+    private fun releasePlayer() {
+        val p = player
+        if (p != null) {
+            playbackHandler.post {
+                p.release()
+            }
+            player = null
+        }
+    }
+
     fun setSurface(surface: Surface?) {
-        mainScope.launch { player?.setVideoSurface(surface) }
+        playbackHandler.post { player?.setVideoSurface(surface) }
     }
 
     fun getCurrentPosition(): Long {
+        // This is called from main thread, but position is safe to read
         return player?.currentPosition ?: 0
     }
 
