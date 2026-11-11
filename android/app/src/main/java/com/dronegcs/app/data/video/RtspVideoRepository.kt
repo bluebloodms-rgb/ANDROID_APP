@@ -35,7 +35,7 @@ class RtspVideoRepository(
     // Dedicated playback thread - isolates ExoPlayer internal exceptions
     private val playbackThread = HandlerThread("ExoPlayer-RTSP").apply { start() }
     private val playbackHandler = Handler(playbackThread.looper)
-    
+
     // Main thread scope for UI state updates
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -45,7 +45,7 @@ class RtspVideoRepository(
 
     // URL requested via play() before the player/view was ready
     private var pendingUrl: String? = null
-    
+
     // Crash recovery state
     private var retryCount = 0
     private const val MAX_RETRIES = 1
@@ -59,6 +59,9 @@ class RtspVideoRepository(
 
     private val _buffering = MutableStateFlow(false)
     val buffering = _buffering.asStateFlow()
+
+    // Synchronization for player lifecycle
+    private val playerLock = Any()
 
     fun bindToPlayerView(playerView: PlayerView) {
         this.playerView = playerView
@@ -74,78 +77,93 @@ class RtspVideoRepository(
     }
 
     private fun ensurePlayer() {
-        if (player != null) return
-        // Low-latency load control: RTSP is live, buffering more than ~1 s of
-        // media adds latency that never recovers (ExoPlayer defaults buffer 50s).
-        val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                /* minBufferMs = */ 200,
-                /* maxBufferMs = */ 1000,
-                /* bufferForPlaybackMs = */ 200,
-                /* bufferForPlaybackAfterRebufferMs = */ 500
-            )
-            .build()
-        
-        // Run ExoPlayer on dedicated thread to isolate crashes from UI/telemetry
-        val exoPlayer = ExoPlayer.Builder(context)
-            .setLoadControl(loadControl)
-            .setPlaybackLooper(playbackThread.looper)
-            .build()
-        
-        // Uncaught exception handler on playback thread - catches RtspMessageUtil.parseRequest crashes
-        playbackThread.uncaughtExceptionHandler = { thread, throwable ->
-            Timber.e(throwable, "ExoPlayer playback thread crashed: ${throwable.message}")
-            // Schedule recovery on main thread
-            mainScope.launch {
-                handlePlaybackCrash()
+        synchronized(playerLock) {
+            if (player != null) return
+            // Low-latency load control: RTSP is live, buffering more than ~1 s of
+            // media adds latency that never recovers (ExoPlayer defaults buffer 50s).
+            val loadControl = DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    /* minBufferMs = */ 200,
+                    /* maxBufferMs = */ 1000,
+                    /* bufferForPlaybackMs = */ 200,
+                    /* bufferForPlaybackAfterRebufferMs = */ 500
+                )
+                .build()
+
+            // Run ExoPlayer on dedicated thread to isolate crashes from UI/telemetry
+            val exoPlayer = ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .setPlaybackLooper(playbackThread.looper)
+                .build()
+
+            // Uncaught exception handler on playback thread - catches RtspMessageUtil.parseRequest crashes
+            // This handler catches exceptions from the playback thread's looper
+            playbackThread.uncaughtExceptionHandler = { thread, throwable ->
+                Timber.e(throwable, "ExoPlayer playback thread crashed: ${throwable.message}")
+                // Schedule recovery on main thread
+                mainScope.launch {
+                    handlePlaybackCrash()
+                }
             }
+
+            exoPlayer.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    mainScope.launch {
+                        _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
+                        _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Timber.e(error, "ExoPlayer error: ${error.errorCode}")
+                    mainScope.launch {
+                        _error.value = error.message
+                        _isPlaying.value = false
+                        _buffering.value = false
+                    }
+                }
+
+                override fun onCues(cues: androidx.media3.common.Cues) { /* ignore */ }
+            })
+
+            // Also set an uncaught exception handler on the player itself for any
+            // exceptions that escape the internal threads (Media3 1.4+)
+            exoPlayer.setUncaughtExceptionHandler { throwable ->
+                Timber.e(throwable, "ExoPlayer uncaught exception: ${throwable.message}")
+                mainScope.launch {
+                    handlePlaybackCrash()
+                }
+            }
+
+            player = exoPlayer
+            Timber.d("ExoPlayer initialized for RTSP on dedicated thread")
         }
-
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                mainScope.launch {
-                    _isPlaying.value = (playbackState == ExoPlayer.STATE_READY)
-                    _buffering.value = (playbackState == ExoPlayer.STATE_BUFFERING)
-                }
-            }
-
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                Timber.e(error, "ExoPlayer error: ${error.errorCode}")
-                mainScope.launch {
-                    _error.value = error.message
-                    _isPlaying.value = false
-                }
-            }
-
-            override fun onCues(cues: androidx.media3.common.Cues) { /* ignore */ }
-        })
-
-        player = exoPlayer
-        Timber.d("ExoPlayer initialized for RTSP on dedicated thread")
     }
 
     /** Handle ExoPlayer crash: release, rebuild, and retry once */
     private fun handlePlaybackCrash() {
-        if (retryCount >= MAX_RETRIES) {
-            Timber.e("Max RTSP retries reached, giving up")
-            _error.value = "Video stream failed after $MAX_RETRIES retries"
-            _isPlaying.value = false
-            _buffering.value = false
-            return
-        }
-        
-        retryCount++
-        Timber.w("RTSP crash recovery attempt $retryCount/$MAX_RETRIES")
-        
-        // Release crashed player
-        releasePlayer()
-        
-        // Rebuild and retry the pending URL
-        pendingUrl?.let { url ->
-            mainScope.launch {
-                delay(1000) // Brief pause before retry
-                ensurePlayer()
-                startPlayback(url)
+        synchronized(playerLock) {
+            if (retryCount >= MAX_RETRIES) {
+                Timber.e("Max RTSP retries reached, giving up")
+                _error.value = "Video stream failed after $MAX_RETRIES retries"
+                _isPlaying.value = false
+                _buffering.value = false
+                return
+            }
+
+            retryCount++
+            Timber.w("RTSP crash recovery attempt $retryCount/$MAX_RETRIES")
+
+            // Release crashed player
+            releasePlayer()
+
+            // Rebuild and retry the pending URL
+            pendingUrl?.let { url ->
+                mainScope.launch {
+                    delay(1000) // Brief pause before retry
+                    ensurePlayer()
+                    startPlayback(url)
+                }
             }
         }
     }
@@ -160,17 +178,20 @@ class RtspVideoRepository(
                 val p = player ?: break
                 // Post to playback thread to safely access player state
                 playbackHandler.post {
-                    if (p.playbackState != ExoPlayer.STATE_READY || !p.playWhenReady) return@post
-                    try {
-                        val offset = p.currentLiveOffset
-                        if (offset > 600) {
-                            p.setPlaybackSpeed(1.1f)
-                            Timber.d("Live catch-up: offset=${offset}ms -> speed 1.1x")
-                        } else if (offset in 0..200) {
-                            p.setPlaybackSpeed(1.0f)
+                    synchronized(playerLock) {
+                        val playerRef = player ?: return@post
+                        if (playerRef.playbackState != ExoPlayer.STATE_READY || !playerRef.playWhenReady) return@post
+                        try {
+                            val offset = playerRef.currentLiveOffset
+                            if (offset > 600) {
+                                playerRef.setPlaybackSpeed(1.1f)
+                                Timber.d("Live catch-up: offset=${offset}ms -> speed 1.1x")
+                            } else if (offset in 0..200) {
+                                playerRef.setPlaybackSpeed(1.0f)
+                            }
+                        } catch (_: Exception) {
+                            // currentLiveOffset is unset for non-live windows
                         }
-                    } catch (_: Exception) {
-                        // currentLiveOffset is unset for non-live windows
                     }
                 }
             }
@@ -178,7 +199,7 @@ class RtspVideoRepository(
     }
 
     private fun startPlayback(rtspUrl: String) {
-        val exoPlayer = player ?: return
+        val exoPlayer = synchronized(playerLock) { player } ?: return
         val mediaItem = MediaItem.Builder()
             .setUri(rtspUrl)
             .setLiveConfiguration(
@@ -189,21 +210,29 @@ class RtspVideoRepository(
                     .build()
             )
             .build()
-        
+
         // Use TCP transport for more stable interleaved framing (avoids UDP packet loss desync)
         val mediaSource = RtspMediaSource.Factory()
             .setTimeoutMs(5000)
             .setForceUseRtpTcp(true)
             .createMediaSource(mediaItem)
-        
-        exoPlayer.setMediaSource(mediaSource)
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
-        exoPlayer.setPlaybackSpeed(1.0f)
-        _buffering.value = true
-        _error.value = null
-        startWatchdog()
-        Timber.d("Starting RTSP stream: $rtspUrl (TCP forced)")
+
+        // Wrap in try/catch to catch synchronous exceptions during prepare
+        try {
+            exoPlayer.setMediaSource(mediaSource)
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+            exoPlayer.setPlaybackSpeed(1.0f)
+            _buffering.value = true
+            _error.value = null
+            startWatchdog()
+            Timber.d("Starting RTSP stream: $rtspUrl (TCP forced)")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to prepare RTSP stream: $rtspUrl")
+            mainScope.launch {
+                handlePlaybackCrash()
+            }
+        }
     }
 
     fun play(rtspUrl: String) {
@@ -214,7 +243,7 @@ class RtspVideoRepository(
             _isPlaying.value = false
             return
         }
-        
+
         pendingUrl = rtspUrl
         retryCount = 0 // Reset retry counter on new stream
         mainScope.launch {
@@ -225,7 +254,7 @@ class RtspVideoRepository(
     }
 
     fun pause() {
-        playbackHandler.post { player?.playWhenReady = false }
+        playbackHandler.post { synchronized(playerLock) { player?.playWhenReady = false } }
         _isPlaying.value = false
     }
 
@@ -253,25 +282,27 @@ class RtspVideoRepository(
     }
 
     private fun releasePlayer() {
-        val p = player
-        if (p != null) {
-            playbackHandler.post {
-                p.release()
+        synchronized(playerLock) {
+            val p = player
+            if (p != null) {
+                playbackHandler.post {
+                    p.release()
+                }
+                player = null
             }
-            player = null
         }
     }
 
     fun setSurface(surface: Surface?) {
-        playbackHandler.post { player?.setVideoSurface(surface) }
+        playbackHandler.post { synchronized(playerLock) { player?.setVideoSurface(surface) } }
     }
 
     fun getCurrentPosition(): Long {
         // This is called from main thread, but position is safe to read
-        return player?.currentPosition ?: 0
+        return synchronized(playerLock) { player?.currentPosition ?: 0 }
     }
 
     fun getDuration(): Long {
-        return player?.duration ?: 0
+        return synchronized(playerLock) { player?.duration ?: 0 }
     }
 }

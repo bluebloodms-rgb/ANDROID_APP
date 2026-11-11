@@ -55,9 +55,6 @@ class MavlinkFlightRepository(
         val RESPONDER_STATE_KEYS = listOf(
             "Op:", "St:", "Md:", "Cls:", "CLASS:", "Spd:", "Zoom:", "Pitch:", "Can:"
         )
-
-        /** Battery voltage threshold (V) for low battery warning. */
-        const val LOW_BATTERY_THRESHOLD_V = 30.0f
     }
 
     @Volatile private var vehicleSysId: Int? = null
