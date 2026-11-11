@@ -27,7 +27,6 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           api-level: 34
-          ndk-version: r26b
           cache: gradle
 
       - name: Make gradlew executable
