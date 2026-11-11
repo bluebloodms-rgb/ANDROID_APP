@@ -29,6 +29,8 @@ jobs:
           api-level: 34
           cache: gradle
           licenses: 'android-sdk-license-.+|google-gdk-license-.+'
+          ndk-version: r26b
+          cmdline-tools-version: 10.0
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
